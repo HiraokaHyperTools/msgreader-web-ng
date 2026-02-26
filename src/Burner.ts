@@ -1,5 +1,6 @@
+import DataStreamR from "./DataStreamR";
+import DataStreamW from "./DataStreamW";
 import { TypeEnum } from "./Reader";
-import DataStream from "./DataStream";
 import CONST from "./const";
 
 /**
@@ -208,8 +209,7 @@ class LiteBurner {
             : -2;
 
         const array = new ArrayBuffer(512 * (1 + this.fat.count()));
-        const ds = new DataStream(array, 0, DataStream.LITTLE_ENDIAN);
-        ds.dynamicSize = false;
+        const ds = new DataStreamW(array);
 
         this.miniFat.finalize(512 / 4, -1);
 
@@ -244,20 +244,20 @@ class LiteBurner {
         // header
 
         {
-            ds.seek(0);
+            ds.seekBegin(0);
             ds.writeUint8Array(CONST.FILE_HEADER);
-            ds.seek(0x18);
+            ds.seekBegin(0x18);
             ds.writeUint16(0x3E); //ushort MinorVersion
             ds.writeUint16(0x03); //ushort MajorVersion
             ds.writeUint16(0xFFFE); //ushort ByteOrder
             ds.writeUint16(9); //ushort SectorShift
             ds.writeUint16(6); //ushort MiniSectorShift
 
-            ds.seek(0x2C);
+            ds.seekBegin(0x2C);
             ds.writeInt32(numFatSectors); //int32 NumberOfFATSectors
             ds.writeInt32(entriesFirstSector); //int32 FirstDirectorySectorLocation
 
-            ds.seek(0x38);
+            ds.seekBegin(0x38);
             ds.writeInt32(4096); //int32 MiniStreamCutoffSize
             ds.writeInt32(firstMiniFatSector); //int32 FirstMiniFATSectorLocation
             ds.writeInt32(numMiniFatSectors); //int32 NumberOfMiniFATSectors
@@ -279,11 +279,11 @@ class LiteBurner {
             const liteEnt = this.liteEnts[x];
             const pos = 512 * (1 + entriesFirstSector) + 128 * x;
 
-            ds.seek(pos);
-            ds.writeUCS2String(liteEnt.entry.name, null, null);
-            const numBytesName = ds.position - pos;
+            ds.seekBegin(pos);
+            ds.writeUCS2String(liteEnt.entry.name);
+            const numBytesName = ds.getPosition() - pos;
 
-            ds.seek(pos + 0x40);
+            ds.seekBegin(pos + 0x40);
             ds.writeUint16(Math.min(64, numBytesName + 2));
             ds.writeUint8(liteEnt.entry.type);
             ds.writeUint8(liteEnt.isRed ? 0 : 1);
@@ -292,7 +292,7 @@ class LiteBurner {
             ds.writeInt32(liteEnt.child);
 
             if (x === 0) {
-                ds.seek(pos + 0x50);
+                ds.seekBegin(pos + 0x50);
                 ds.writeUint8Array([0x0B, 0x0D, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0xC0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46]);
             }
 
@@ -303,7 +303,7 @@ class LiteBurner {
                 ? liteEnt.firstSector
                 : (liteEnt.entry.type === TypeEnum.DIRECTORY ? 0 : -2);
 
-            ds.seek(pos + 0x74);
+            ds.seekBegin(pos + 0x74);
             ds.writeInt32(firstSector);
             ds.writeInt32(length);
         }
@@ -315,7 +315,7 @@ class LiteBurner {
             )
         ) {
             const bytes = liteEnt.entry.binaryProvider();
-            ds.seek(512 * (1 + liteEnt.firstSector));
+            ds.seekBegin(512 * (1 + liteEnt.firstSector));
             ds.writeUint8Array(bytes);
         }
 
@@ -326,26 +326,26 @@ class LiteBurner {
             )
         ) {
             const bytes = liteEnt.entry.binaryProvider();
-            ds.seek(512 * (1 + firstMiniDataSector) + 64 * liteEnt.firstSector);
+            ds.seekBegin(512 * (1 + firstMiniDataSector) + 64 * liteEnt.firstSector);
             ds.writeUint8Array(bytes);
         }
 
         // minifat
 
-        ds.seek(512 * (1 + firstMiniFatSector));
+        ds.seekBegin(512 * (1 + firstMiniFatSector));
         ds.writeInt32Array(this.miniFat.sectors);
 
         // fat
 
         this.fat.finalize(512 / 4, -1);
 
-        ds.seek(512 * (1 + firstFatSector));
+        ds.seekBegin(512 * (1 + firstFatSector));
         ds.writeInt32Array(this.fat.sectors);
 
         // difat
 
         if (numDifatSectors >= 1) {
-            ds.seek(512 * (1 + firstDifatSector));
+            ds.seekBegin(512 * (1 + firstDifatSector));
             ds.writeInt32Array(difat2);
         }
 
@@ -401,7 +401,7 @@ class LiteBurner {
             // (     | 0   )
             // (   0 | 1   )
             // (   0 | 1 2 )
- 
+
             // (left, right), returns first right node
             const split2 = (start: number, end: number, isRed: boolean): number => {
                 if (start < end) {

@@ -1,9 +1,9 @@
-import DataStream from "./DataStream";
+import DataStreamR from "./DataStreamR";
 
 /**
  * @internal
  */
- export function parse(ds: DataStream): string {
+ export function parse(ds: DataStreamR): string {
     // 2.2.1.74.1 VoteOption Structure
     // https://docs.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxomsg/87488eff-3eec-4502-bc94-2368c04e3109
 

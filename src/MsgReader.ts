@@ -17,10 +17,10 @@
  */
 
 import CONST from './const'
-import DataStream from './DataStream'
+import DataStreamR from './DataStreamR';
 import { CFileSet, CFolder, Reader } from './Reader';
 import { burn, Entry } from './Burner';
-import { bin2HexUpper, emptyToNull, msftUuidStringify, toHex2, toHex4 } from './utils';
+import { bin2HexUpper, Codec, emptyToNull, msftUuidStringify, toHex2, toHex4 } from './utils';
 import { parse as entryStreamParser } from './EntryStreamParser';
 import { parse as parseVerbStream } from './VerbStreamParser';
 import { parse as parseTZDEFINITION, TzDefinition } from './TZDEFINITIONParser';
@@ -48,7 +48,7 @@ export interface ParserConfig {
   includeRawProps?: boolean;
 
   /**
-   * Specify iconv-lite's supported character encoding.
+   * Specify TextDecoder's supported character encoding.
    * This is used for PT_STRING8 (PtypString8) non-Unicode string properties.
    * 
    * e.g.
@@ -67,12 +67,17 @@ export interface ParserConfig {
    * 
    */
   ansiEncoding?: string;
+
+  /**
+   * Otherwise, you can specify your own decoder for PT_STRING8 (PtypString8) non-Unicode string properties.
+   */
+  decodeAnsiString?: (data: Uint8Array) => string;
 }
 
 interface ParsingConfig {
   propertyObserver: (fields: FieldsData, tag: number, raw: Uint8Array | null) => void;
   includeRawProps: boolean;
-  ansiEncoding?: string;
+  codec: Codec;
 }
 
 /**
@@ -1484,9 +1489,9 @@ export default class MsgReader {
     this.reader = new Reader(arrayBuffer);
   }
 
-  private decodeField(fieldClass: string, fieldType: string, provider: () => Uint8Array, ansiEncoding: string, insideProps: boolean): FieldValuePair {
+  private decodeField(fieldClass: string, fieldType: string, provider: () => Uint8Array, codec: Codec, insideProps: boolean): FieldValuePair {
     const array = provider();
-    const ds = new DataStream(array, 0, DataStream.LITTLE_ENDIAN);
+    const ds = new DataStreamR(array);
 
     let key = CONST.MSG.FIELD.FULL_NAME_MAPPING[`${fieldClass}${fieldType}`]
       || CONST.MSG.FIELD.NAME_MAPPING[fieldClass];
@@ -1531,7 +1536,7 @@ export default class MsgReader {
     const decodeAs = CONST.MSG.FIELD.TYPE_MAPPING[fieldType];
     if (0) { }
     else if (decodeAs === "string") {
-      value = removeTrailingNull(ds.readString(array.length, ansiEncoding));
+      value = removeTrailingNull(ds.readString(array.length, codec.decode));
       skip = insideProps;
     }
     else if (decodeAs === "unicode") {
@@ -1576,7 +1581,7 @@ export default class MsgReader {
     }
     else if (key === "apptRecur") {
       try {
-        value = parseAppointmentRecur(ds, ansiEncoding);
+        value = parseAppointmentRecur(ds, codec);
       }
       catch (ex) {
         console.debug(ex);
@@ -1630,7 +1635,7 @@ export default class MsgReader {
       this.setDecodedFieldTo(
         parserConfig,
         fields,
-        this.decodeField(fieldClass, fieldType, documentProperty.provider, parserConfig.ansiEncoding, false)
+        this.decodeField(fieldClass, fieldType, documentProperty.provider, parserConfig.codec, false)
       );
     }
   }
@@ -1773,12 +1778,12 @@ export default class MsgReader {
 
   private fieldsRecipAndAttachmentProperties(parserConfig: ParsingConfig, documentProperty: CFileSet, fields: FieldsData): void {
     const propertiesBinary: Uint8Array = documentProperty.provider();
-    const propertiesDs = new DataStream(propertiesBinary, 8, DataStream.LITTLE_ENDIAN);
+    const propertiesDs = new DataStreamR(propertiesBinary, 8);
 
     this.importPropertiesFromFile(parserConfig, propertiesDs, fields);
   }
 
-  private importPropertiesFromFile(parserConfig: ParsingConfig, propertiesDs: DataStream, fields: FieldsData) {
+  private importPropertiesFromFile(parserConfig: ParsingConfig, propertiesDs: DataStreamR, fields: FieldsData) {
     // See: [MS-OXMSG]: Outlook Item (.msg) File Format, 2.4 Property Stream
     // https://docs.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxmsg/20c1125f-043d-42d9-b1dc-cb9b7e5198ef
 
@@ -1806,14 +1811,14 @@ export default class MsgReader {
       this.setDecodedFieldTo(
         parserConfig,
         fields,
-        this.decodeField(fieldClass, fieldType, () => arr, parserConfig.ansiEncoding, true)
+        this.decodeField(fieldClass, fieldType, () => arr, parserConfig.codec, true)
       );
     }
   }
 
   private fieldsRootProperties(parserConfig: ParsingConfig, documentProperty: CFileSet, fields: FieldsData): void {
     const propertiesBinary: Uint8Array = documentProperty.provider();
-    const propertiesDs = new DataStream(propertiesBinary, 32, DataStream.LITTLE_ENDIAN);
+    const propertiesDs = new DataStreamR(propertiesBinary, 32);
 
     this.importPropertiesFromFile(parserConfig, propertiesDs, fields);
   }
@@ -1865,10 +1870,10 @@ export default class MsgReader {
     //console.log("%", guidTable, stringTable, entryTable);
     if (guidTable !== undefined && stringTable !== undefined && entryTable !== undefined) {
       const entries = entryStreamParser(entryTable);
-      const stringReader = new DataStream(stringTable, 0, DataStream.LITTLE_ENDIAN);
+      const stringReader = new DataStreamR(stringTable, 0);
       for (let entry of entries) {
         if (entry.isStringProperty) {
-          stringReader.seek(entry.key);
+          stringReader.seekBegin(entry.key);
           const numTextBytes = stringReader.readUint32();
 
           this.privatePidToKeyed[0x8000 | entry.propertyIndex] = {
@@ -1926,11 +1931,26 @@ export default class MsgReader {
         {
           propertyObserver: (this.parserConfig?.propertyObserver) || (() => { }),
           includeRawProps: this.parserConfig?.includeRawProps ? true : false,
-          ansiEncoding: emptyToNull(this.parserConfig?.ansiEncoding),
-        }
+          codec: {
+            decode: this.parserConfig?.decodeAnsiString
+              || ((this.parserConfig?.ansiEncoding)
+                ? this.getTextDecoderOf(this.parserConfig.ansiEncoding)
+                : null
+              ),
+          },
+        },
       );
     }
     return this.fieldsData;
+  }
+
+  private getTextDecoderOf(ansiEncoding: string): (data: Uint8Array) => string {
+    if (ansiEncoding === "932") {
+      ansiEncoding = "shift_jis";
+    }
+
+    const decoder = new TextDecoder(ansiEncoding);
+    return (data: Uint8Array) => decoder.decode(data);
   }
 
   /**

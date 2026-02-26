@@ -1,7 +1,8 @@
 {
   "entryPoints": [
     "./src/Burner.ts",
-    "./src/DataStream.ts",
+    "./src/DataStreamR.ts",
+    "./src/DataStreamW.ts",
     "./src/MsgReader.ts",
     "./src/Reader.ts",
     "./src/Defs.ts"

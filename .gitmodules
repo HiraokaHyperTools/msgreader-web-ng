@@ -1,4 +1,4 @@
 [submodule "docs"]
 	path = docs
-	url = https://github.com/HiraokaHyperTools/msgreader.git
+	url = https://github.com/HiraokaHyperTools/msgreader-web-ng.git
 	branch = gh-pages

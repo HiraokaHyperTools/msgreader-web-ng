@@ -1,4 +1,5 @@
-import DataStream from "./DataStream";
+import DataStreamR from "./DataStreamR";
+import { Codec } from "./utils";
 
 /**
  * RecurFrequency
@@ -661,7 +662,7 @@ export interface AppointmentRecur {
   exceptionInfo: ExceptionInfo[];
 }
 
-function parseRecurrencePattern(ds: DataStream): RecurrencePattern {
+function parseRecurrencePattern(ds: DataStreamR): RecurrencePattern {
   const ReaderVersion = ds.readUint16();
   if (ReaderVersion !== 0x3004) {
     throw new Error("ReaderVersion not supported");
@@ -713,9 +714,9 @@ function parseRecurrencePattern(ds: DataStream): RecurrencePattern {
   const occurrenceCount = ds.readUint32();
   const firstDOW = ds.readUint32();
   const deletedInstanceCount = ds.readUint32();
-  const deletedInstanceDates = Array.from(ds.readUint32Array(deletedInstanceCount)) as number[];
+  const deletedInstanceDates = ds.readUint32Items(deletedInstanceCount);
   const modifiedInstanceCount = ds.readUint32();
-  const modifiedInstanceDates = Array.from(ds.readUint32Array(modifiedInstanceCount)) as number[];
+  const modifiedInstanceDates = ds.readUint32Items(modifiedInstanceCount);
   const startDate = ds.readUint32();
   const endDate = ds.readUint32();
 
@@ -730,8 +731,8 @@ function parseRecurrencePattern(ds: DataStream): RecurrencePattern {
       endType: endType,
       occurrenceCount: occurrenceCount,
       firstDOW: firstDOW,
-      deletedInstanceDates: deletedInstanceDates,
-      modifiedInstanceDates: modifiedInstanceDates,
+      deletedInstanceDates: Array.from(deletedInstanceDates),
+      modifiedInstanceDates: Array.from(modifiedInstanceDates),
       startDate: startDate,
       endDate: endDate,
     },
@@ -744,7 +745,7 @@ function parseRecurrencePattern(ds: DataStream): RecurrencePattern {
 /**
  * @internal
  */
-export function parse(ds: DataStream, ansiEncoding: string): AppointmentRecur {
+export function parse(ds: DataStreamR, codec: Codec): AppointmentRecur {
   const recurrencePattern = parseRecurrencePattern(ds);
 
   const readerVersion2 = ds.readUint32();
@@ -775,7 +776,7 @@ export function parse(ds: DataStream, ansiEncoding: string): AppointmentRecur {
       if (subjectLength - 1 !== subjectLength2) {
         throw new Error(`subjectLength ${subjectLength} and subjectLength2 ${subjectLength2} are not close!`);
       }
-      subject = ds.readString(subjectLength2, ansiEncoding);
+      subject = ds.readString(subjectLength2, codec.decode);
     }
 
     let meetingType: number | undefined = undefined;
@@ -800,7 +801,7 @@ export function parse(ds: DataStream, ansiEncoding: string): AppointmentRecur {
       if (locationLength - 1 !== locationLength2) {
         throw new Error(`locationLength ${locationLength} and locationLength2 ${locationLength2} are not close!`);
       }
-      location = ds.readString(locationLength2, ansiEncoding);
+      location = ds.readString(locationLength2, codec.decode);
     }
 
     let busyStatus: number | undefined = undefined;
@@ -852,7 +853,7 @@ export function parse(ds: DataStream, ansiEncoding: string): AppointmentRecur {
     if (0x00003009 <= writerVersion2) {
       const changeHighlightSize = ds.readUint32();
       one.changeHighlight = ds.readUint32();
-      ds.position += changeHighlightSize - 4;
+      ds.seekCur(changeHighlightSize - 4);
     }
 
     const reservedBlockEE1Size = ds.readUint32();

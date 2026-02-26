@@ -1,5 +1,4 @@
-import { stringify } from "querystring";
-import DataStream from "./DataStream";
+import DataStreamR from "./DataStreamR";
 import { TransitionSystemTime } from "./TZDEFINITIONParser";
 
 /**
@@ -137,7 +136,7 @@ function padNumber(value: number, maxLen: number): string {
 /**
  * @internal
  */
-export function readSystemTime(ds: DataStream): Date | null {
+export function readSystemTime(ds: DataStreamR): Date | null {
   // SYSTEMTIME structure (minwinbase.h)
   // https://learn.microsoft.com/en-us/windows/win32/api/minwinbase/ns-minwinbase-systemtime
 
@@ -162,7 +161,7 @@ export function readSystemTime(ds: DataStream): Date | null {
 /**
  * @internal
  */
-export function readTransitionSystemTime(ds: DataStream): TransitionSystemTime {
+export function readTransitionSystemTime(ds: DataStreamR): TransitionSystemTime {
   // SYSTEMTIME structure (minwinbase.h)
   // https://learn.microsoft.com/en-us/windows/win32/api/minwinbase/ns-minwinbase-systemtime
 
@@ -188,10 +187,14 @@ export function readTransitionSystemTime(ds: DataStream): TransitionSystemTime {
 /**
  * @internal
  */
-export function bin2HexUpper(ds: DataStream): string {
+export function bin2HexUpper(ds: DataStreamR): string {
   var text = "";
   while (!ds.isEof()) {
     text += toHex1(ds.readUint8());
   }
   return text.toUpperCase();
+}
+
+export interface Codec {
+  decode?: (data: Uint8Array) => string;
 }

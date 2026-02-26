@@ -863,8 +863,8 @@ describe('toHexStr', function () {
   });
 });
 
-describe('DataStream', function () {
-  const DataStream = require('../lib/DataStream').default;
+describe('DataStreamR', function () {
+  const DataStreamR = require('../lib/DataStreamR').default;
 
   describe('byteOffset', function () {
     it('little.buffer.offset.readInt32Array', function () {
@@ -872,9 +872,7 @@ describe('DataStream', function () {
       new Int32Array(buffer).set([0, 1, 2, 3, 4, 5, 6, 7]);
       const array2 = new Uint8Array(buffer, 8);
 
-      const ds = new DataStream(array2, 8, DataStream.LITTLE_ENDIAN);
-      assert.strictEqual(ds.byteOffset, 16);
-      assert.strictEqual(ds.byteLength, 16);
+      const ds = new DataStreamR(array2, 8);
       assert.deepEqual(Array.from(ds.readInt32Array(2)), [4, 5]);
     });
   });
@@ -882,104 +880,50 @@ describe('DataStream', function () {
   describe('0 to 15', function () {
     const buff = new Uint8Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
     it('little.readUint32', function () {
-      const ds = new DataStream(buff, 0, DataStream.LITTLE_ENDIAN);
-      assert.strictEqual(ds.byteOffset, 0);
-      assert.strictEqual(ds.byteLength, 16);
+      const ds = new DataStreamR(buff, 0);
       assert.strictEqual(ds.readUint32(), 0x03020100);
       assert.strictEqual(ds.readUint32(), 0x07060504);
       assert.strictEqual(ds.readUint32(), 0x0b0a0908);
       assert.strictEqual(ds.readUint32(), 0x0f0e0d0c);
-    });
-    it('big.readUint32', function () {
-      const ds = new DataStream(buff, 0, DataStream.BIG_ENDIAN);
-      assert.strictEqual(ds.byteOffset, 0);
-      assert.strictEqual(ds.byteLength, 16);
-      assert.strictEqual(ds.readUint32(), 0x00010203);
-      assert.strictEqual(ds.readUint32(), 0x04050607);
-      assert.strictEqual(ds.readUint32(), 0x08090a0b);
-      assert.strictEqual(ds.readUint32(), 0x0c0d0e0f);
     });
     it('little.offset.readUint32', function () {
-      const ds = new DataStream(buff, 4, DataStream.LITTLE_ENDIAN);
-      assert.strictEqual(ds.byteOffset, 4);
-      assert.strictEqual(ds.byteLength, 12);
-      assert.strictEqual(ds.readUint32(), 0x07060504);
-      assert.strictEqual(ds.readUint32(), 0x0b0a0908);
-      assert.strictEqual(ds.readUint32(), 0x0f0e0d0c);
-    });
-    it('big.offset.readUint32', function () {
-      const ds = new DataStream(buff, 4, DataStream.BIG_ENDIAN);
-      assert.strictEqual(ds.byteOffset, 4);
-      assert.strictEqual(ds.byteLength, 12);
-      assert.strictEqual(ds.readUint32(), 0x04050607);
-      assert.strictEqual(ds.readUint32(), 0x08090a0b);
-      assert.strictEqual(ds.readUint32(), 0x0c0d0e0f);
-    });
-    it('little.buffer.readUint32', function () {
-      const ds = new DataStream(buff.buffer, 0, DataStream.LITTLE_ENDIAN);
-      assert.strictEqual(ds.byteOffset, 0);
-      assert.strictEqual(ds.byteLength, 16);
-      assert.strictEqual(ds.readUint32(), 0x03020100);
-      assert.strictEqual(ds.readUint32(), 0x07060504);
-      assert.strictEqual(ds.readUint32(), 0x0b0a0908);
-      assert.strictEqual(ds.readUint32(), 0x0f0e0d0c);
-    });
-    it('little.buffer.offset.readUint32', function () {
-      const ds = new DataStream(buff.buffer, 4, DataStream.LITTLE_ENDIAN);
-      assert.strictEqual(ds.byteOffset, 4);
-      assert.strictEqual(ds.byteLength, 12);
+      const ds = new DataStreamR(buff, 4);
       assert.strictEqual(ds.readUint32(), 0x07060504);
       assert.strictEqual(ds.readUint32(), 0x0b0a0908);
       assert.strictEqual(ds.readUint32(), 0x0f0e0d0c);
     });
 
     it('little.readUint32Array', function () {
-      const ds = new DataStream(buff, 0, DataStream.LITTLE_ENDIAN);
-      assert.strictEqual(ds.byteOffset, 0);
-      assert.strictEqual(ds.byteLength, 16);
+      const ds = new DataStreamR(buff, 0);
       assert.notStrictEqual([...ds.readUint32Array()], [0x03020100, 0x07060504, 0x0b0a0908, 0x0f0e0d0c]);
     });
     it('little.readInt32Array', function () {
-      const ds = new DataStream(buff, 0, DataStream.LITTLE_ENDIAN);
-      assert.strictEqual(ds.byteOffset, 0);
-      assert.strictEqual(ds.byteLength, 16);
+      const ds = new DataStreamR(buff, 0);
       assert.notStrictEqual([...ds.readInt32Array()], [0x03020100, 0x07060504, 0x0b0a0908, 0x0f0e0d0c]);
     });
     it('little.readUint16Array', function () {
-      const ds = new DataStream(buff, 0, DataStream.LITTLE_ENDIAN);
-      assert.strictEqual(ds.byteOffset, 0);
-      assert.strictEqual(ds.byteLength, 16);
+      const ds = new DataStreamR(buff, 0);
       assert.notStrictEqual([...ds.readUint16Array()], [0x0100, 0x0302, 0x0504, 0x0706, 0x0908, 0x0b0a, 0x0d0c, 0x0f0e]);
     });
     it('little.readInt16Array', function () {
-      const ds = new DataStream(buff, 0, DataStream.LITTLE_ENDIAN);
-      assert.strictEqual(ds.byteOffset, 0);
-      assert.strictEqual(ds.byteLength, 16);
+      const ds = new DataStreamR(buff, 0);
       assert.notStrictEqual([...ds.readInt16Array()], [0x0100, 0x0302, 0x0504, 0x0706, 0x0908, 0x0b0a, 0x0d0c, 0x0f0e]);
     });
 
     it('little.readUint32Array +offset', function () {
-      const ds = new DataStream(buff, 8, DataStream.LITTLE_ENDIAN);
-      assert.strictEqual(ds.byteOffset, 8);
-      assert.strictEqual(ds.byteLength, 8);
+      const ds = new DataStreamR(buff, 8);
       assert.notStrictEqual([...ds.readUint32Array()], [0x0b0a0908, 0x0f0e0d0c]);
     });
     it('little.readInt32Array +offset', function () {
-      const ds = new DataStream(buff, 8, DataStream.LITTLE_ENDIAN);
-      assert.strictEqual(ds.byteOffset, 8);
-      assert.strictEqual(ds.byteLength, 8);
+      const ds = new DataStreamR(buff, 8);
       assert.notStrictEqual([...ds.readInt32Array()], [0x0b0a0908, 0x0f0e0d0c]);
     });
     it('little.readUint16Array +offset', function () {
-      const ds = new DataStream(buff, 8, DataStream.LITTLE_ENDIAN);
-      assert.strictEqual(ds.byteOffset, 8);
-      assert.strictEqual(ds.byteLength, 8);
+      const ds = new DataStreamR(buff, 8);
       assert.notStrictEqual([...ds.readUint16Array()], [0x0908, 0x0b0a, 0x0d0c, 0x0f0e]);
     });
     it('little.readInt16Array +offset', function () {
-      const ds = new DataStream(buff, 8, DataStream.LITTLE_ENDIAN);
-      assert.strictEqual(ds.byteOffset, 8);
-      assert.strictEqual(ds.byteLength, 8);
+      const ds = new DataStreamR(buff, 8);
       assert.notStrictEqual([...ds.readInt16Array()], [0x0908, 0x0b0a, 0x0d0c, 0x0f0e]);
     });
   });

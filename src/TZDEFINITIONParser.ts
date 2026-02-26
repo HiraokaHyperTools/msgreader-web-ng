@@ -1,4 +1,4 @@
-import DataStream from "./DataStream";
+import DataStreamR from "./DataStreamR";
 import { readSystemTime, readTransitionSystemTime } from "./utils";
 
 const TZDEFINITION_FLAG_VALID_GUID = 1;
@@ -99,7 +99,7 @@ export interface TzDefinition {
 /**
  * @internal
  */
-export function parse(ds: DataStream): TzDefinition | null {
+export function parse(ds: DataStreamR): TzDefinition | null {
   // About persisting TZDEFINITION to a stream to commit to a binary property
   // https://learn.microsoft.com/en-us/office/client-developer/outlook/auxiliary/about-persisting-tzdefinition-to-a-stream-to-commit-to-a-binary-property?redirectedfrom=MSDN
 
@@ -127,7 +127,7 @@ export function parse(ds: DataStream): TzDefinition | null {
       tz.keyName = ds.readUCS2String(cchKeyName);
     }
     const cRules = ds.readUint16();
-    ds.seek(4 + cbHeader);
+    ds.seekBegin(4 + cbHeader);
 
     for (let x = 0; x < cRules; x++) {
       const bMajorVersion = ds.readUint8();
@@ -139,7 +139,7 @@ export function parse(ds: DataStream): TzDefinition | null {
         break;
       }
       const cbRule = ds.readUint16();
-      const basePos = ds.position;
+      const basePos = ds.getPosition();
       const wFlags = ds.readUint16();
       const stStart = readSystemTime(ds);
       const lBias = ds.readInt32();
@@ -162,7 +162,7 @@ export function parse(ds: DataStream): TzDefinition | null {
       );
       tz.rules.push(rule);
 
-      ds.seek(basePos + cbRule);
+      ds.seekBegin(basePos + cbRule);
     }
   }
   return tz;

@@ -1,4 +1,4 @@
-import DataStream from "./DataStream";
+import DataStreamR from "./DataStreamR";
 import { arraysEqual } from "./utils";
 import CONST from './const'
 
@@ -118,7 +118,7 @@ export interface CFileSet {
  * Original msg file (CFBF) reader which was implemented in MsgReader.
  */
 export class Reader {
-  private ds: DataStream;
+  private ds: DataStreamR;
   private bigBlockSize: number;
   private bigBlockLength: number;
   private xBlockLength: number;
@@ -134,51 +134,59 @@ export class Reader {
   private propertyData?: Property[];
   private bigBlockTable: number[];
 
-  constructor(arrayBuffer: ArrayBuffer | DataView) {
-    this.ds = new DataStream(arrayBuffer, 0, DataStream.LITTLE_ENDIAN);
+  constructor(arrayBuffer: ArrayBuffer | DataView | ArrayLike<number>) {
+    if (arrayBuffer instanceof ArrayBuffer) {
+      this.ds = new DataStreamR(new Uint8Array(arrayBuffer), 0);
+    } else if (arrayBuffer instanceof DataView) {
+      this.ds = new DataStreamR(new Uint8Array(arrayBuffer.buffer, arrayBuffer.byteOffset, arrayBuffer.byteLength), 0);
+    } else if (arrayBuffer && arrayBuffer.length !== undefined) {
+      this.ds = new DataStreamR(new Uint8Array(arrayBuffer), 0);
+    } else {
+      throw new Error("Unknown arrayBuffer");
+    }
   }
 
   isMSGFile(): boolean {
-    this.ds.seek(0);
+    this.ds.seekBegin(0);
     return arraysEqual(CONST.FILE_HEADER, this.ds.readInt8Array(CONST.FILE_HEADER.length));
   }
 
   private headerData(): void {
-    this.bigBlockSize = this.ds.readByte(30) == CONST.MSG.L_BIG_BLOCK_MARK ? CONST.MSG.L_BIG_BLOCK_SIZE : CONST.MSG.S_BIG_BLOCK_SIZE;
+    this.bigBlockSize = this.ds.seekBeginAndReadByte(30) == CONST.MSG.L_BIG_BLOCK_MARK ? CONST.MSG.L_BIG_BLOCK_SIZE : CONST.MSG.S_BIG_BLOCK_SIZE;
     this.bigBlockLength = this.bigBlockSize / 4;
 
     // system data
     this.xBlockLength = this.bigBlockLength - 1;
 
     // header data
-    this.batCount = this.ds.readInt(CONST.MSG.HEADER.BAT_COUNT_OFFSET);
-    this.propertyStart = this.ds.readInt(CONST.MSG.HEADER.PROPERTY_START_OFFSET);
-    this.sbatStart = this.ds.readInt(CONST.MSG.HEADER.SBAT_START_OFFSET);
-    this.sbatCount = this.ds.readInt(CONST.MSG.HEADER.SBAT_COUNT_OFFSET);
-    this.xbatStart = this.ds.readInt(CONST.MSG.HEADER.XBAT_START_OFFSET);
-    this.xbatCount = this.ds.readInt(CONST.MSG.HEADER.XBAT_COUNT_OFFSET);
+    this.batCount = this.ds.seekBeginAndReadInt(CONST.MSG.HEADER.BAT_COUNT_OFFSET);
+    this.propertyStart = this.ds.seekBeginAndReadInt(CONST.MSG.HEADER.PROPERTY_START_OFFSET);
+    this.sbatStart = this.ds.seekBeginAndReadInt(CONST.MSG.HEADER.SBAT_START_OFFSET);
+    this.sbatCount = this.ds.seekBeginAndReadInt(CONST.MSG.HEADER.SBAT_COUNT_OFFSET);
+    this.xbatStart = this.ds.seekBeginAndReadInt(CONST.MSG.HEADER.XBAT_START_OFFSET);
+    this.xbatCount = this.ds.seekBeginAndReadInt(CONST.MSG.HEADER.XBAT_COUNT_OFFSET);
   }
 
   private convertName(offset: number): string {
-    const nameLength = this.ds.readShort(offset + CONST.MSG.PROP.NAME_SIZE_OFFSET);
+    const nameLength = this.ds.seekBeginAndReadShort(offset + CONST.MSG.PROP.NAME_SIZE_OFFSET);
     if (nameLength < 1) {
       return '';
     } else {
-      return this.ds.readStringAt(offset, nameLength / 2).split('\0')[0];
+      return this.ds.seekBeginAndReadString(offset, nameLength / 2).split('\0')[0];
     }
   }
 
   private convertProperty(offset: number): Property {
     return {
-      type: this.ds.readByte(offset + CONST.MSG.PROP.TYPE_OFFSET),
+      type: this.ds.seekBeginAndReadByte(offset + CONST.MSG.PROP.TYPE_OFFSET),
       name: this.convertName(offset),
       // hierarchy
-      previousProperty: this.ds.readInt(offset + CONST.MSG.PROP.PREVIOUS_PROPERTY_OFFSET),
-      nextProperty: this.ds.readInt(offset + CONST.MSG.PROP.NEXT_PROPERTY_OFFSET),
-      childProperty: this.ds.readInt(offset + CONST.MSG.PROP.CHILD_PROPERTY_OFFSET),
+      previousProperty: this.ds.seekBeginAndReadInt(offset + CONST.MSG.PROP.PREVIOUS_PROPERTY_OFFSET),
+      nextProperty: this.ds.seekBeginAndReadInt(offset + CONST.MSG.PROP.NEXT_PROPERTY_OFFSET),
+      childProperty: this.ds.seekBeginAndReadInt(offset + CONST.MSG.PROP.CHILD_PROPERTY_OFFSET),
       // data offset
-      startBlock: this.ds.readInt(offset + CONST.MSG.PROP.START_BLOCK_OFFSET),
-      sizeBlock: this.ds.readInt(offset + CONST.MSG.PROP.SIZE_OFFSET),
+      startBlock: this.ds.seekBeginAndReadInt(offset + CONST.MSG.PROP.START_BLOCK_OFFSET),
+      sizeBlock: this.ds.seekBeginAndReadInt(offset + CONST.MSG.PROP.SIZE_OFFSET),
     };
   }
 
@@ -187,11 +195,11 @@ export class Reader {
     let propertyOffset = this.getBlockOffsetAt(propertyBlockOffset);
 
     for (let i = 0; i < propertyCount; i++) {
-      if (this.ds.byteLength < propertyOffset + CONST.MSG.PROP.TYPE_OFFSET) {
+      if (this.ds.getLength() < propertyOffset + CONST.MSG.PROP.TYPE_OFFSET) {
         break;
       }
 
-      const propertyType = this.ds.readByte(propertyOffset + CONST.MSG.PROP.TYPE_OFFSET);
+      const propertyType = this.ds.seekBeginAndReadByte(propertyOffset + CONST.MSG.PROP.TYPE_OFFSET);
       switch (propertyType) {
         case CONST.MSG.PROP.TYPE_ENUM.ROOT:
         case CONST.MSG.PROP.TYPE_ENUM.DIRECTORY:
@@ -283,7 +291,7 @@ export class Reader {
 
   private batDataReader(): number[] {
     const result = new Array(this.batCountInHeader());
-    this.ds.seek(CONST.MSG.HEADER.BAT_START_OFFSET);
+    this.ds.seekBegin(CONST.MSG.HEADER.BAT_START_OFFSET);
     for (let i = 0; i < result.length; i++) {
       result[i] = this.ds.readInt32()
     }
@@ -296,13 +304,13 @@ export class Reader {
 
   private getBlockAt(offset: number): Int32Array {
     const startOffset = this.getBlockOffsetAt(offset);
-    this.ds.seek(startOffset);
+    this.ds.seekBegin(startOffset);
     return this.ds.readInt32Array(this.bigBlockLength);
   }
 
   private getBlockValueAt(offset: number, index: number): number {
     const startOffset = this.getBlockOffsetAt(offset);
-    this.ds.seek(startOffset + 4 * index);
+    this.ds.seekBegin(startOffset + 4 * index);
     return this.ds.readInt32();
   }
 
@@ -392,7 +400,7 @@ export class Reader {
     const nextBlock = this.bigBlockTable[bigBlockNumber];
     const blockStartOffset = this.getBlockOffsetAt(nextBlock);
 
-    this.ds.seek(blockStartOffset + bigBlockOffset);
+    this.ds.seekBegin(blockStartOffset + bigBlockOffset);
     return this.ds.readToUint8Array(blockSize, arr, dstOffset);
   }
 
@@ -434,7 +442,7 @@ export class Reader {
       const resultData = new Uint8Array(fieldProperty.sizeBlock);
       while (1 <= remaining) {
         const blockStartOffset = this.getBlockOffsetAt(nextBlock);
-        this.ds.seek(blockStartOffset);
+        this.ds.seekBegin(blockStartOffset);
         const partSize = Math.min(remaining, this.bigBlockSize);
         const part = this.ds.readUint8Array(partSize);
         resultData.set(part, position);
