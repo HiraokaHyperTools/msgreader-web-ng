@@ -1,99 +1,24 @@
-const fs = require('fs');
-const temp = require('temp').track();
+import fs from 'node:fs';
+import { track } from 'temp';
+import { execFile } from 'child_process';
+import { join } from 'path';
+import { decompressRTF } from '@kenjiuno/decompressrtf';
+import assert from 'assert';
+import { CFolder, TypeEnum } from '../lib/Reader';
+import { MsgReader, burn, Reader } from '../lib/index';
+import { toHexStr } from '../lib/utils';
+import { DataStreamReader } from '../lib/DataStreamReader';
+import { msftUuidStringify } from '../lib/utils';
+import { toHex1, toHex2, toHex4 } from '../lib/utils';
+import type { AttachmentData, FieldsData } from '../lib/index';
+
+const temp = track();
 
 const generateJsonData = false;
 const useValidateCompoundFile = process.platform === 'win32';
 
-function removeCompressedRtf(msg) {
-  const attachments = msg.attachments.map(
-    sub => {
-      const newSub = Object.assign({}, sub);
-      if (newSub.innerMsgContentFields) {
-        newSub.innerMsgContentFields = removeCompressedRtf(sub.innerMsgContentFields);
-      }
-      return newSub;
-    }
-  );
-
-  const newMsg = Object.assign({}, msg);
-  delete newMsg.compressedRtf;
-  newMsg.attachments = attachments;
-  return newMsg;
-}
-
-function runAppAsync(file, args) {
-  return new Promise((resolve, reject) => {
-    const { execFile } = require('child_process');
-    const child = execFile(file, args, (error, stdout, stderr) => {
-      if (error) {
-        reject(error);
-      }
-    });
-    child.on('exit', () => {
-      if (child.exitCode === 0) {
-        resolve();
-      }
-      else {
-        reject(new Error(`returned exitCode: ${child.exitCode}`));
-      }
-    });
-  });
-}
-
-async function runValidateCompoundFileAsync(opt) {
-  if (opt.binary) {
-    const msgPath = temp.path({ suffix: '.msg' });
-    fs.writeFileSync(msgPath, opt.binary);
-    const { join } = require('path');
-    await runAppAsync(join(__dirname, "../tools/ValidateCompoundFile.exe"), [msgPath]);
-  }
-  else {
-    throw new Error("Pass binary");
-  }
-}
-
-function use(testMsgInfo, jsonFilePath) {
-  if (generateJsonData) {
-    fs.writeFileSync(jsonFilePath, JSON.stringify(testMsgInfo, null, 1));
-  }
-  else {
-    assert.deepStrictEqual(
-      testMsgInfo,
-      JSON.parse(fs.readFileSync(jsonFilePath))
-    );
-  }
-}
-
-const { decompressRTF } = require('@kenjiuno/decompressrtf');
-
-function useRtf(testMsgInfo, rtfFilePath) {
-  const { compressedRtf } = testMsgInfo;
-  const rtf = decompressRTF(compressedRtf);
-
-  if (generateJsonData) {
-    fs.writeFileSync(rtfFilePath, Buffer.from(rtf));
-  }
-  else {
-    assert.deepStrictEqual(
-      rtf,
-      [...fs.readFileSync(rtfFilePath)]
-    );
-  }
-}
-
-const assert = require('assert');
-const { TypeEnum } = require('../lib/Reader');
 describe('MsgReader', function () {
-  const MsgReader = require('../lib/MsgReader').default;
-
   describe('test1.msg', function () {
-    function run(callback) {
-      const msgFileBuffer = fs.readFileSync('test/test1.msg');
-      const testMsg = new MsgReader(msgFileBuffer);
-      const testMsgInfo = testMsg.getFileData();
-      callback({ testMsgInfo });
-    }
-
     it('exact match with pre rendered data (except on compressedRtf)', function () {
       run(
         ({ testMsgInfo }) => {
@@ -109,17 +34,16 @@ describe('MsgReader', function () {
         }
       );
     });
+
+    function run(callback: (arg: { testMsgInfo: FieldsData }) => void) {
+      const msgFileBuffer = fs.readFileSync('test/test1.msg');
+      const testMsg = new MsgReader(msgFileBuffer);
+      const testMsgInfo = testMsg.getFileData();
+      callback({ testMsgInfo });
+    }
   });
 
   describe('test2.msg', function () {
-    function run(callback) {
-      const msgFileBuffer = fs.readFileSync('test/test2.msg');
-      const testMsg = new MsgReader(msgFileBuffer);
-      const testMsgInfo = testMsg.getFileData();
-      const testMsgAttachment0 = testMsg.getAttachment(0);
-      callback({ testMsgInfo, testMsgAttachment0 });
-    }
-
     it('exact match with pre rendered data (except on compressedRtf)', function () {
       run(
         ({ testMsgInfo }) => {
@@ -150,18 +74,17 @@ describe('MsgReader', function () {
         }
       )
     });
-  });
 
-  describe('msgInMsg.msg', function () {
-    async function runAsync(callback) {
-      const msgFileBuffer = fs.readFileSync('test/msgInMsg.msg');
+    function run(callback: (arg: { testMsgInfo: FieldsData, testMsgAttachment0: AttachmentData }) => void) {
+      const msgFileBuffer = fs.readFileSync('test/test2.msg');
       const testMsg = new MsgReader(msgFileBuffer);
       const testMsgInfo = testMsg.getFileData();
       const testMsgAttachment0 = testMsg.getAttachment(0);
-      const testMsgAttachments0 = testMsg.getAttachment(testMsgInfo.attachments[0]);
-      await callback({ testMsgInfo, testMsgAttachment0, testMsgAttachments0 });
+      callback({ testMsgInfo, testMsgAttachment0 });
     }
+  });
 
+  describe('msgInMsg.msg', function () {
     it('exact match with pre rendered data (except on compressedRtf)',
       () => runAsync(
         async ({ testMsgInfo }) => {
@@ -205,23 +128,19 @@ describe('MsgReader', function () {
         }
       )
     );
+
+    async function runAsync(callback: (arg: { testMsgInfo: FieldsData, testMsgAttachment0: AttachmentData, testMsgAttachments0: AttachmentData }) => Promise<void>) {
+      const msgFileBuffer = fs.readFileSync('test/msgInMsg.msg');
+      const testMsg = new MsgReader(msgFileBuffer);
+      const testMsgInfo = ensureNotNullish(testMsg.getFileData());
+      const testMsgAttachment0 = testMsg.getAttachment(0);
+      const testMsgAttachments0 = testMsg.getAttachment(ensureNotNullish(testMsgInfo.attachments)[0]);
+      await callback({ testMsgInfo, testMsgAttachment0, testMsgAttachments0 });
+    }
   });
 
 
   describe('msgInMsgInMsg.msg', function () {
-    async function runAsync(callback) {
-      const msgFileBuffer = fs.readFileSync('test/msgInMsgInMsg.msg');
-      const testMsg = new MsgReader(msgFileBuffer);
-      const testMsgInfo = testMsg.getFileData();
-      const testMsgAttachments0 = testMsg.getAttachment(
-        testMsgInfo.attachments[0]
-      );
-      const testMsgAttachments0AndItsAttachments0 = testMsg.getAttachment(
-        testMsgInfo.attachments[0].innerMsgContentFields.attachments[0]
-      );
-      await callback({ testMsgInfo, testMsgAttachments0, testMsgAttachments0AndItsAttachments0 });
-    }
-
     it('exact match with pre rendered data (except on compressedRtf)',
       () => runAsync(
         async ({ testMsgInfo }) => {
@@ -279,16 +198,22 @@ describe('MsgReader', function () {
         }
       )
     );
+
+    async function runAsync(callback: (arg: { testMsgInfo: FieldsData, testMsgAttachments0: AttachmentData, testMsgAttachments0AndItsAttachments0: AttachmentData }) => Promise<void>) {
+      const msgFileBuffer = fs.readFileSync('test/msgInMsgInMsg.msg');
+      const testMsg = new MsgReader(msgFileBuffer);
+      const testMsgInfo = ensureNotNullish(testMsg.getFileData());
+      const testMsgAttachments0 = testMsg.getAttachment(
+        ensureNotNullish(testMsgInfo.attachments)[0]
+      );
+      const testMsgAttachments0AndItsAttachments0 = testMsg.getAttachment(
+        ensureNotNullish(ensureNotNullish(ensureNotNullish(testMsgInfo.attachments)[0].innerMsgContentFields).attachments)[0]
+      );
+      await callback({ testMsgInfo, testMsgAttachments0, testMsgAttachments0AndItsAttachments0 });
+    }
   });
 
   describe('Subject.msg', function () {
-    function run(callback) {
-      const msgFileBuffer = fs.readFileSync('test/Subject.msg');
-      const testMsg = new MsgReader(msgFileBuffer);
-      const testMsgInfo = testMsg.getFileData();
-      callback({ testMsgInfo });
-    }
-
     it('exact match with pre rendered data (except on compressedRtf)',
       () => run(({ testMsgInfo }) => {
         const msg = removeCompressedRtf(testMsgInfo);
@@ -301,16 +226,16 @@ describe('MsgReader', function () {
         useRtf(testMsgInfo, 'test/Subject.rtf');
       })
     );
+
+    function run(callback: (arg: { testMsgInfo: FieldsData }) => void) {
+      const msgFileBuffer = fs.readFileSync('test/Subject.msg');
+      const testMsg = new MsgReader(msgFileBuffer);
+      const testMsgInfo = ensureNotNullish(testMsg.getFileData());
+      callback({ testMsgInfo });
+    }
   });
 
   describe('sent.msg', function () {
-    function run(callback) {
-      const msgFileBuffer = fs.readFileSync('test/sent.msg');
-      const testMsg = new MsgReader(msgFileBuffer);
-      const testMsgInfo = testMsg.getFileData();
-      callback({ testMsgInfo });
-    }
-
     it('exact match with pre rendered data (except on compressedRtf)',
       () => run(({ testMsgInfo }) => {
         const msg = removeCompressedRtf(testMsgInfo);
@@ -323,16 +248,16 @@ describe('MsgReader', function () {
         useRtf(testMsgInfo, 'test/sent.rtf');
       })
     );
+
+    function run(callback: (arg: { testMsgInfo: FieldsData }) => void) {
+      const msgFileBuffer = fs.readFileSync('test/sent.msg');
+      const testMsg = new MsgReader(msgFileBuffer);
+      const testMsgInfo = ensureNotNullish(testMsg.getFileData());
+      callback({ testMsgInfo });
+    }
   });
 
   describe('sent2.msg', function () {
-    function run(callback) {
-      const msgFileBuffer = fs.readFileSync('test/sent2.msg');
-      const testMsg = new MsgReader(msgFileBuffer);
-      const testMsgInfo = testMsg.getFileData();
-      callback({ testMsgInfo });
-    }
-
     it('exact match with pre rendered data (except on compressedRtf)',
       () => run(({ testMsgInfo }) => {
         const msg = removeCompressedRtf(testMsgInfo);
@@ -345,17 +270,16 @@ describe('MsgReader', function () {
         useRtf(testMsgInfo, 'test/sent2.rtf');
       })
     );
+
+    function run(callback: (arg: { testMsgInfo: FieldsData }) => void) {
+      const msgFileBuffer = fs.readFileSync('test/sent2.msg');
+      const testMsg = new MsgReader(msgFileBuffer);
+      const testMsgInfo = ensureNotNullish(testMsg.getFileData());
+      callback({ testMsgInfo });
+    }
   });
 
   describe('longerFat.msg', function () {
-    function run(callback) {
-      const msgFileBuffer = fs.readFileSync('test/longerFat.msg');
-      const testMsg = new MsgReader(msgFileBuffer);
-      const testMsgInfo = testMsg.getFileData();
-      const testMsgAttachments0 = testMsg.getAttachment(testMsgInfo.attachments[0]);
-      callback({ testMsgAttachments0 });
-    }
-
     it('re-parse and verify rebuilt inner testMsgAttachments0',
       () => run(({ testMsgAttachments0 }) => {
         const subReader = new MsgReader(testMsgAttachments0.content);
@@ -365,17 +289,17 @@ describe('MsgReader', function () {
         use(subMsg, 'test/longerFat-attachments0.json');
       })
     );
+
+    function run(callback: (arg: { testMsgAttachments0: AttachmentData }) => void) {
+      const msgFileBuffer = fs.readFileSync('test/longerFat.msg');
+      const testMsg = new MsgReader(msgFileBuffer);
+      const testMsgInfo = ensureNotNullish(testMsg.getFileData());
+      const testMsgAttachments0 = ensureNotNullish(testMsg.getAttachment(ensureNotNullish(testMsgInfo.attachments)[0]));
+      callback({ testMsgAttachments0 });
+    }
   });
 
   describe('longerDifat.msg', function () {
-    function run(callback) {
-      const msgFileBuffer = fs.readFileSync('test/longerDifat.msg');
-      const testMsg = new MsgReader(msgFileBuffer);
-      const testMsgInfo = testMsg.getFileData();
-      const testMsgAttachments0 = testMsg.getAttachment(testMsgInfo.attachments[0]);
-      callback({ testMsgAttachments0 });
-    }
-
     it('re-parse and verify rebuilt inner testMsgAttachments0',
       () => run(({ testMsgAttachments0 }) => {
         const subReader = new MsgReader(testMsgAttachments0.content);
@@ -385,16 +309,17 @@ describe('MsgReader', function () {
         use(subMsg, 'test/longerDifat-attachments0.json');
       })
     );
+
+    function run(callback: (arg: { testMsgAttachments0: AttachmentData }) => void) {
+      const msgFileBuffer = fs.readFileSync('test/longerDifat.msg');
+      const testMsg = new MsgReader(msgFileBuffer);
+      const testMsgInfo = ensureNotNullish(testMsg.getFileData());
+      const testMsgAttachments0 = ensureNotNullish(testMsg.getAttachment(ensureNotNullish(testMsgInfo.attachments)[0]));
+      callback({ testMsgAttachments0 });
+    }
   });
 
   describe('attachAndInline.msg', function () {
-    function run(callback) {
-      const msgFileBuffer = fs.readFileSync('test/attachAndInline.msg');
-      const testMsg = new MsgReader(msgFileBuffer);
-      const testMsgInfo = testMsg.getFileData();
-      callback({ testMsgInfo });
-    }
-
     it('exact match with pre rendered data (except on compressedRtf)',
       () => run(({ testMsgInfo }) => {
         const msg = removeCompressedRtf(testMsgInfo);
@@ -407,16 +332,16 @@ describe('MsgReader', function () {
         useRtf(testMsgInfo, 'test/attachAndInline.rtf');
       })
     );
+
+    function run(callback: (arg: { testMsgInfo: FieldsData }) => void) {
+      const msgFileBuffer = fs.readFileSync('test/attachAndInline.msg');
+      const testMsg = new MsgReader(msgFileBuffer);
+      const testMsgInfo = ensureNotNullish(testMsg.getFileData());
+      callback({ testMsgInfo });
+    }
   });
 
   describe('voteItems.msg', function () {
-    function run(callback) {
-      const msgFileBuffer = fs.readFileSync('test/voteItems.msg');
-      const testMsg = new MsgReader(msgFileBuffer);
-      const testMsgInfo = testMsg.getFileData();
-      callback({ testMsgInfo });
-    }
-
     it('exact match with pre rendered data (except on compressedRtf)',
       () => run(({ testMsgInfo }) => {
         const msg = removeCompressedRtf(testMsgInfo);
@@ -429,48 +354,48 @@ describe('MsgReader', function () {
         useRtf(testMsgInfo, 'test/voteItems.rtf');
       })
     );
+
+    function run(callback: (arg: { testMsgInfo: FieldsData }) => void) {
+      const msgFileBuffer = fs.readFileSync('test/voteItems.msg');
+      const testMsg = new MsgReader(msgFileBuffer);
+      const testMsgInfo = ensureNotNullish(testMsg.getFileData());
+      callback({ testMsgInfo });
+    }
   });
 
   describe('voteNo.msg', function () {
-    function run(callback) {
-      const msgFileBuffer = fs.readFileSync('test/voteNo.msg');
-      const testMsg = new MsgReader(msgFileBuffer);
-      const testMsgInfo = testMsg.getFileData();
-      callback({ testMsgInfo });
-    }
-
     it('exact match with pre rendered data (except on compressedRtf)',
       () => run(({ testMsgInfo }) => {
         const msg = removeCompressedRtf(testMsgInfo);
         use(msg, 'test/voteNo.json');
       })
     );
+
+    function run(callback: (arg: { testMsgInfo: FieldsData }) => void) {
+      const msgFileBuffer = fs.readFileSync('test/voteNo.msg');
+      const testMsg = new MsgReader(msgFileBuffer);
+      const testMsgInfo = ensureNotNullish(testMsg.getFileData());
+      callback({ testMsgInfo });
+    }
   });
 
   describe('voteYes.msg', function () {
-    function run(callback) {
-      const msgFileBuffer = fs.readFileSync('test/voteYes.msg');
-      const testMsg = new MsgReader(msgFileBuffer);
-      const testMsgInfo = testMsg.getFileData();
-      callback({ testMsgInfo });
-    }
-
     it('exact match with pre rendered data (except on compressedRtf)',
       () => run(({ testMsgInfo }) => {
         const msg = removeCompressedRtf(testMsgInfo);
         use(msg, 'test/voteYes.json');
       })
     );
+
+    function run(callback: (arg: { testMsgInfo: FieldsData }) => void) {
+      const msgFileBuffer = fs.readFileSync('test/voteYes.msg');
+      const testMsg = new MsgReader(msgFileBuffer);
+      const testMsgInfo = ensureNotNullish(testMsg.getFileData());
+      callback({ testMsgInfo });
+    }
   });
 
   describe('A schedule.msg', function () {
-    function run(callback) {
-      const msgFileBuffer = fs.readFileSync('test/A schedule.msg');
-      const testMsg = new MsgReader(msgFileBuffer);
-      const testMsgInfo = testMsg.getFileData();
-      callback({ testMsgInfo });
-    }
-
     it('exact match with pre rendered data (except on compressedRtf)',
       () => run(({ testMsgInfo }) => {
         const msg = removeCompressedRtf(testMsgInfo);
@@ -483,17 +408,16 @@ describe('MsgReader', function () {
         useRtf(testMsgInfo, 'test/A schedule.rtf');
       })
     );
+
+    function run(callback: (arg: { testMsgInfo: FieldsData }) => void) {
+      const msgFileBuffer = fs.readFileSync('test/A schedule.msg');
+      const testMsg = new MsgReader(msgFileBuffer);
+      const testMsgInfo = ensureNotNullish(testMsg.getFileData());
+      callback({ testMsgInfo });
+    }
   });
 
   describe('A memo.msg', function () {
-    function run(callback) {
-      const msgFileBuffer = fs.readFileSync('test/A memo.msg');
-      const testMsg = new MsgReader(msgFileBuffer);
-      const testMsgInfo = testMsg.getFileData();
-
-      callback({ testMsgInfo });
-    }
-
     it('exact match with pre rendered data (except on compressedRtf)',
       () => run(({ testMsgInfo }) => {
         const msg = removeCompressedRtf(testMsgInfo);
@@ -506,16 +430,17 @@ describe('MsgReader', function () {
         useRtf(testMsgInfo, 'test/A memo.rtf');
       })
     );
+
+    function run(callback: (arg: { testMsgInfo: FieldsData }) => void) {
+      const msgFileBuffer = fs.readFileSync('test/A memo.msg');
+      const testMsg = new MsgReader(msgFileBuffer);
+      const testMsgInfo = ensureNotNullish(testMsg.getFileData());
+
+      callback({ testMsgInfo });
+    }
   });
 
   describe('nonUnicodeMail.msg', function () {
-    function run(callback) {
-      const msgFileBuffer = fs.readFileSync('test/nonUnicodeMail.msg');
-      const testMsg = new MsgReader(msgFileBuffer);
-      const testMsgInfo = testMsg.getFileData();
-      callback({ testMsgInfo });
-    }
-
     it('exact match with pre rendered data (except on compressedRtf)',
       () => run(({ testMsgInfo }) => {
         const msg = removeCompressedRtf(testMsgInfo);
@@ -528,19 +453,16 @@ describe('MsgReader', function () {
         useRtf(testMsgInfo, 'test/nonUnicodeMail.rtf');
       })
     );
+
+    function run(callback: (arg: { testMsgInfo: FieldsData }) => void) {
+      const msgFileBuffer = fs.readFileSync('test/nonUnicodeMail.msg');
+      const testMsg = new MsgReader(msgFileBuffer);
+      const testMsgInfo = ensureNotNullish(testMsg.getFileData());
+      callback({ testMsgInfo });
+    }
   });
 
   describe('nonUnicodeCP932.msg', function () {
-    function run(callback) {
-      const msgFileBuffer = fs.readFileSync('test/nonUnicodeCP932.msg');
-      const testMsg = new MsgReader(msgFileBuffer);
-      testMsg.parserConfig = {
-        ansiEncoding: '932',
-      };
-      const testMsgInfo = testMsg.getFileData();
-      callback({ testMsgInfo });
-    }
-
     it('exact match with pre rendered data (except on compressedRtf)',
       () => run(({ testMsgInfo }) => {
         const msg = removeCompressedRtf(testMsgInfo);
@@ -553,57 +475,49 @@ describe('MsgReader', function () {
         useRtf(testMsgInfo, 'test/nonUnicodeCP932.rtf');
       })
     );
+
+    function run(callback: (arg: { testMsgInfo: FieldsData }) => void) {
+      const msgFileBuffer = fs.readFileSync('test/nonUnicodeCP932.msg');
+      const testMsg = new MsgReader(msgFileBuffer);
+      testMsg.parserConfig = {
+        ansiEncoding: '932',
+      };
+      const testMsgInfo = ensureNotNullish(testMsg.getFileData());
+      callback({ testMsgInfo });
+    }
   });
 
   describe('contactAnsi.msg', function () {
-    function run(callback) {
-      const msgFileBuffer = fs.readFileSync('test/contactAnsi.msg');
-      const testMsg = new MsgReader(msgFileBuffer);
-      const testMsgInfo = testMsg.getFileData();
-      callback({ testMsgInfo });
-    }
-
     it('exact match with pre rendered data (except on compressedRtf)',
       () => run(({ testMsgInfo }) => {
         const msg = removeCompressedRtf(testMsgInfo);
         use(msg, 'test/contactAnsi.json');
       })
     );
+
+    function run(callback: (arg: { testMsgInfo: FieldsData }) => void) {
+      const msgFileBuffer = fs.readFileSync('test/contactAnsi.msg');
+      const testMsg = new MsgReader(msgFileBuffer);
+      const testMsgInfo = ensureNotNullish(testMsg.getFileData());
+      callback({ testMsgInfo });
+    }
   });
 
   describe('contactUnicode.msg', function () {
-    function run(callback) {
-      const msgFileBuffer = fs.readFileSync('test/contactUnicode.msg');
-      const testMsg = new MsgReader(msgFileBuffer);
-      const testMsgInfo = testMsg.getFileData();
-      callback({ testMsgInfo });
-    }
-
     it('exact match with pre rendered data (except on compressedRtf)',
       () => run(({ testMsgInfo }) => {
         const msg = removeCompressedRtf(testMsgInfo);
         use(msg, 'test/contactUnicode.json');
       })
     );
+
+    function run(callback: (arg: { testMsgInfo: FieldsData }) => void) {
+      const msgFileBuffer = fs.readFileSync('test/contactUnicode.msg');
+      const testMsg = new MsgReader(msgFileBuffer);
+      const testMsgInfo = ensureNotNullish(testMsg.getFileData());
+      callback({ testMsgInfo });
+    }
   });
-
-  function generateRegression(msgName) {
-    describe(`${msgName}.msg`, function () {
-      function run(callback) {
-        const msgFileBuffer = fs.readFileSync(`test/${msgName}.msg`);
-        const testMsg = new MsgReader(msgFileBuffer);
-        const testMsgInfo = testMsg.getFileData();
-        callback({ testMsgInfo });
-      }
-
-      it('exact match with pre rendered data (except on compressedRtf)',
-        () => run(({ testMsgInfo }) => {
-          const msg = removeCompressedRtf(testMsgInfo);
-          use(msg, `test/${msgName}.json`);
-        })
-      );
-    });
-  }
 
   generateRegression('A black friday (w tz)');
   generateRegression('A black friday (wo tz)');
@@ -621,27 +535,42 @@ describe('MsgReader', function () {
   generateRegression('attachmentsOrder');
   generateRegression('Many entities');
 
+  function generateRegression(msgName: string) {
+    describe(`${msgName}.msg`, function () {
+      it('exact match with pre rendered data (except on compressedRtf)',
+        () => run(({ testMsgInfo }) => {
+          const msg = removeCompressedRtf(testMsgInfo);
+          use(msg, `test/${msgName}.json`);
+        })
+      );
+
+      function run(callback: (arg: { testMsgInfo: FieldsData }) => void) {
+        const msgFileBuffer = fs.readFileSync(`test/${msgName}.msg`);
+        const testMsg = new MsgReader(msgFileBuffer);
+        const testMsgInfo = ensureNotNullish(testMsg.getFileData());
+        callback({ testMsgInfo });
+      }
+    });
+  }
 });
 
-
 describe('Burner', function () {
-  const burn = require('../lib/Burner').burn;
-  const Reader = require('../lib/Reader').Reader;
+  interface FsEntry {
+    name: string;
+    type: TypeEnum;
+    length: number;
+    children: number[];
+    binaryProvider?: (() => Uint8Array);
+  }
 
-  /**
-   * 
-   * path: `file`, `dir/file`, `dir1/dir2/file`
-   * 
-   * @param { path: string, binary?: ArrayLike<number> }[] entries 
-   * @returns { array: Uint8Array }
-   */
-  const burnByFsEntries = (entries) => {
-    const fsEntries = [
+  // path: `file`, `dir/file`, `dir1/dir2/file`
+  const burnByFsEntries: (entries: { path: string, binary?: ArrayLike<number> }[]) => { array: Uint8Array } = (entries) => {
+    const fsEntries: FsEntry[] = [
       {
         name: "Root Entry",
         type: TypeEnum.ROOT,
         length: 0,
-        children: [],
+        children: [] as number[],
       },
     ];
 
@@ -659,7 +588,7 @@ describe('Burner', function () {
             name,
             type: TypeEnum.DIRECTORY,
             length: 0,
-            children: [],
+            children: [] as number[],
           });
           fsEntries[parentIndex].children.push(newIndex);
           parentIndex = newIndex;
@@ -687,7 +616,7 @@ describe('Burner', function () {
     return { array: array };
   };
 
-  const burnAFileHavingLengthBy = (x) => {
+  const burnAFileHavingLengthBy: (x: number) => { writeData: Uint8Array, array: Uint8Array } = (x) => {
     const writeData = new Uint8Array(x);
     for (let t = 0; t < writeData.length; t++) {
       writeData[t] = ((t ^ (t / 257) ^ (t / 65537) ^ (t / 1048573)) & 255);
@@ -707,8 +636,6 @@ describe('Burner', function () {
         binaryProvider: () => writeData,
       }
     ]);
-
-    //require('fs').writeFileSync(x + ".msg", array);
 
     return { writeData, array };
   };
@@ -741,20 +668,6 @@ describe('Burner', function () {
 
   describe('Compare file contents among Burner/Reader', function () {
     describe('file size', function () {
-      const runReaderWith = ({ writeData, array }) => {
-        const reader = new Reader(array);
-        reader.parse();
-
-        const readData = reader.rootFolder().readFile("file");
-        assert.deepStrictEqual(readData, writeData);
-      };
-
-      const testIt = function (length) {
-        return runReaderWith(
-          burnAFileHavingLengthBy(length)
-        );
-      };
-
       it('file size 0', function () { testIt(0); });
       it('file size 1', function () { testIt(1); });
       it('file size 63', function () { testIt(63); });
@@ -764,16 +677,45 @@ describe('Burner', function () {
       it('file size 512 (fat sector size)', function () { testIt(512); });
       it('file size 513', function () { testIt(513); });
       it('file size 65537', function () { testIt(65537); });
-    });
 
-    describe('tree builder', function () {
-      const runReaderWith = (array, entries) => {
+      function testIt(length: number) {
+        return runReaderWith(
+          burnAFileHavingLengthBy(length)
+        );
+      };
+
+      function runReaderWith(arg: { writeData: Uint8Array, array: Uint8Array }) {
+        const { writeData, array } = arg;
         const reader = new Reader(array);
         reader.parse();
 
-        const loadedEntries = [];
+        const readData = reader.rootFolder().readFile("file");
+        assert.deepStrictEqual(readData, writeData);
+      };
+    });
 
-        function walk(folder, prefix) {
+    describe('tree builder', function () {
+      it('files10', function () { testIt(files10); });
+      it('dirs3_10', function () { testIt(dirs3_10); });
+
+      function testIt(entries: { path: string, binary: Uint8Array }[]) {
+        return runReaderWith(
+          burnByFsEntries(entries).array,
+          entries
+        );
+      };
+
+      function runReaderWith(array: Uint8Array, entries: { path: string, binary: Uint8Array }[]) {
+        const reader = new Reader(array);
+        reader.parse();
+
+        const loadedEntries: { path: string, binary: Uint8Array }[] = [];
+
+        walk(reader.rootFolder(), "");
+
+        assert.deepStrictEqual(sort(loadedEntries), sort(entries));
+
+        function walk(folder: CFolder, prefix: string) {
           for (const subFolder of folder.subFolders()) {
             walk(subFolder, prefix + subFolder.name + "/");
           }
@@ -787,37 +729,15 @@ describe('Burner', function () {
           }
         }
 
-        walk(reader.rootFolder(), "");
-
-        function sort(array) {
+        function sort<T extends { path: string }>(array: T[]) {
           return [...array].sort((a, b) => a.path.localeCompare(b.path));
         }
-
-        assert.deepStrictEqual(sort(loadedEntries), sort(entries));
       };
-
-      const testIt = function (entries) {
-        return runReaderWith(
-          burnByFsEntries(entries).array,
-          entries
-        );
-      };
-
-      it('files10', function () { testIt(files10); });
-      it('dirs3_10', function () { testIt(dirs3_10); });
     });
   });
 
   (useValidateCompoundFile ? describe : describe.skip)('validateCompoundFile', function () {
     describe("file size", function () {
-      const testIt = async function (length) {
-        await runValidateCompoundFileAsync(
-          {
-            binary: burnAFileHavingLengthBy(length).array,
-          }
-        );
-      }
-
       it('file size 0', function () { return testIt(0); });
       it('file size 1', function () { return testIt(1); });
       it('file size 63', function () { return testIt(63); });
@@ -827,25 +747,32 @@ describe('Burner', function () {
       it('file size 512 (fat sector size)', function () { return testIt(512); });
       it('file size 513', function () { return testIt(513); });
       it('file size 65537', function () { return testIt(65537); });
+
+      async function testIt(length: number) {
+        await runValidateCompoundFileAsync(
+          {
+            binary: burnAFileHavingLengthBy(length).array,
+          }
+        );
+      }
     });
 
     describe("tree builder", function () {
-      const testIt = async function (entries) {
+      it('files10', function () { testIt(files10); });
+      it('dirs3_10', function () { testIt(dirs3_10); });
+
+      async function testIt(entries: { path: string, binary: Uint8Array }[]) {
         await runValidateCompoundFileAsync(
           {
             binary: burnByFsEntries(entries).array,
           }
         );
       }
-
-      it('files10', function () { testIt(files10); });
-      it('dirs3_10', function () { testIt(dirs3_10); });
     });
   });
 });
 
 describe('toHexStr', function () {
-  const toHexStr = require('../lib/utils').toHexStr;
   it('tests', function () {
     assert.strictEqual(toHexStr(0x00, 2), "00");
     assert.strictEqual(toHexStr(0x01, 2), "01");
@@ -863,16 +790,14 @@ describe('toHexStr', function () {
   });
 });
 
-describe('DataStreamR', function () {
-  const DataStreamR = require('../lib/DataStreamR').default;
-
+describe('DataStreamReader', function () {
   describe('byteOffset', function () {
     it('little.buffer.offset.readInt32Array', function () {
       const buffer = new ArrayBuffer(32);
       new Int32Array(buffer).set([0, 1, 2, 3, 4, 5, 6, 7]);
       const array2 = new Uint8Array(buffer, 8);
 
-      const ds = new DataStreamR(array2, 8);
+      const ds = new DataStreamReader(array2, 8);
       assert.deepEqual(Array.from(ds.readInt32Array(2)), [4, 5]);
     });
   });
@@ -880,59 +805,57 @@ describe('DataStreamR', function () {
   describe('0 to 15', function () {
     const buff = new Uint8Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
     it('little.readUint32', function () {
-      const ds = new DataStreamR(buff, 0);
+      const ds = new DataStreamReader(buff, 0);
       assert.strictEqual(ds.readUint32(), 0x03020100);
       assert.strictEqual(ds.readUint32(), 0x07060504);
       assert.strictEqual(ds.readUint32(), 0x0b0a0908);
       assert.strictEqual(ds.readUint32(), 0x0f0e0d0c);
     });
     it('little.offset.readUint32', function () {
-      const ds = new DataStreamR(buff, 4);
+      const ds = new DataStreamReader(buff, 4);
       assert.strictEqual(ds.readUint32(), 0x07060504);
       assert.strictEqual(ds.readUint32(), 0x0b0a0908);
       assert.strictEqual(ds.readUint32(), 0x0f0e0d0c);
     });
 
     it('little.readUint32Array', function () {
-      const ds = new DataStreamR(buff, 0);
-      assert.notStrictEqual([...ds.readUint32Array()], [0x03020100, 0x07060504, 0x0b0a0908, 0x0f0e0d0c]);
+      const ds = new DataStreamReader(buff, 0);
+      assert.deepEqual(Array.from(ds.readUint32Array(4)), [0x03020100, 0x07060504, 0x0b0a0908, 0x0f0e0d0c]);
     });
     it('little.readInt32Array', function () {
-      const ds = new DataStreamR(buff, 0);
-      assert.notStrictEqual([...ds.readInt32Array()], [0x03020100, 0x07060504, 0x0b0a0908, 0x0f0e0d0c]);
+      const ds = new DataStreamReader(buff, 0);
+      assert.deepEqual(Array.from(ds.readInt32Array(4)), [0x03020100, 0x07060504, 0x0b0a0908, 0x0f0e0d0c]);
     });
     it('little.readUint16Array', function () {
-      const ds = new DataStreamR(buff, 0);
-      assert.notStrictEqual([...ds.readUint16Array()], [0x0100, 0x0302, 0x0504, 0x0706, 0x0908, 0x0b0a, 0x0d0c, 0x0f0e]);
+      const ds = new DataStreamReader(buff, 0);
+      assert.deepEqual(Array.from(ds.readUint16Array(8)), [0x0100, 0x0302, 0x0504, 0x0706, 0x0908, 0x0b0a, 0x0d0c, 0x0f0e]);
     });
     it('little.readInt16Array', function () {
-      const ds = new DataStreamR(buff, 0);
-      assert.notStrictEqual([...ds.readInt16Array()], [0x0100, 0x0302, 0x0504, 0x0706, 0x0908, 0x0b0a, 0x0d0c, 0x0f0e]);
+      const ds = new DataStreamReader(buff, 0);
+      assert.deepEqual(Array.from(ds.readInt16Array(8)), [0x0100, 0x0302, 0x0504, 0x0706, 0x0908, 0x0b0a, 0x0d0c, 0x0f0e]);
     });
 
     it('little.readUint32Array +offset', function () {
-      const ds = new DataStreamR(buff, 8);
-      assert.notStrictEqual([...ds.readUint32Array()], [0x0b0a0908, 0x0f0e0d0c]);
+      const ds = new DataStreamReader(buff, 8);
+      assert.deepEqual(Array.from(ds.readUint32Array(2)), [0x0b0a0908, 0x0f0e0d0c]);
     });
     it('little.readInt32Array +offset', function () {
-      const ds = new DataStreamR(buff, 8);
-      assert.notStrictEqual([...ds.readInt32Array()], [0x0b0a0908, 0x0f0e0d0c]);
+      const ds = new DataStreamReader(buff, 8);
+      assert.deepEqual(Array.from(ds.readInt32Array(2)), [0x0b0a0908, 0x0f0e0d0c]);
     });
     it('little.readUint16Array +offset', function () {
-      const ds = new DataStreamR(buff, 8);
-      assert.notStrictEqual([...ds.readUint16Array()], [0x0908, 0x0b0a, 0x0d0c, 0x0f0e]);
+      const ds = new DataStreamReader(buff, 8);
+      assert.deepEqual(Array.from(ds.readUint16Array(4)), [0x0908, 0x0b0a, 0x0d0c, 0x0f0e]);
     });
     it('little.readInt16Array +offset', function () {
-      const ds = new DataStreamR(buff, 8);
-      assert.notStrictEqual([...ds.readInt16Array()], [0x0908, 0x0b0a, 0x0d0c, 0x0f0e]);
+      const ds = new DataStreamReader(buff, 8);
+      assert.deepEqual(Array.from(ds.readInt16Array(4)), [0x0908, 0x0b0a, 0x0d0c, 0x0f0e]);
     });
   });
 });
 
 
 describe('msftUuidStringify', function () {
-  const { msftUuidStringify } = require('../lib/utils');
-
   it("basic", function () {
     assert.strictEqual(
       msftUuidStringify(
@@ -959,7 +882,6 @@ describe('msftUuidStringify', function () {
 });
 
 describe('toHex', function () {
-  const { toHex1, toHex2, toHex4 } = require('../lib/utils');
   it("toHex1", function () {
     assert.strictEqual(toHex1(0x12), "12");
     assert.strictEqual(toHex1(0xab), "ab");
@@ -973,3 +895,86 @@ describe('toHex', function () {
     assert.strictEqual(toHex4(0xabcdef01), "abcdef01");
   });
 });
+
+function removeCompressedRtf(msg: FieldsData): FieldsData {
+  const attachments = (msg.attachments || []).map(
+    sub => {
+      const newSub = Object.assign({}, sub);
+      const { innerMsgContentFields } = newSub;
+      if (innerMsgContentFields) {
+        newSub.innerMsgContentFields = removeCompressedRtf(innerMsgContentFields);
+      }
+      return newSub;
+    }
+  );
+
+  const newMsg = Object.assign({}, msg);
+  delete newMsg.compressedRtf;
+  newMsg.attachments = attachments;
+  return newMsg;
+}
+
+function runAppAsync(file: string, args: string[]): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = execFile(file, args, (error, stdout, stderr) => {
+      if (error) {
+        reject(error);
+      }
+    });
+    child.on('exit', () => {
+      if (child.exitCode === 0) {
+        resolve();
+      }
+      else {
+        reject(new Error(`returned exitCode: ${child.exitCode}`));
+      }
+    });
+  });
+}
+
+async function runValidateCompoundFileAsync(opt: { binary?: Uint8Array }): Promise<void> {
+  if (opt.binary) {
+    const msgPath = temp.path({ suffix: '.msg' });
+    fs.writeFileSync(msgPath, opt.binary);
+    await runAppAsync(join(__dirname, "../tools/ValidateCompoundFile.exe"), [msgPath]);
+  }
+  else {
+    throw new Error("Pass binary");
+  }
+}
+
+function use(testMsgInfo: FieldsData, jsonFilePath: string) {
+  if (generateJsonData) {
+    fs.writeFileSync(jsonFilePath, JSON.stringify(testMsgInfo, null, 1));
+  }
+  else {
+    assert.deepStrictEqual(
+      testMsgInfo,
+      JSON.parse(fs.readFileSync(jsonFilePath, 'utf-8'))
+    );
+  }
+}
+
+function useRtf(testMsgInfo: FieldsData, rtfFilePath: string) {
+  const { compressedRtf } = testMsgInfo;
+  const rtf = decompressRTF(Array.from(compressedRtf || []));
+
+  if (generateJsonData) {
+    fs.writeFileSync(rtfFilePath, Buffer.from(rtf));
+  }
+  else {
+    assert.deepStrictEqual(
+      rtf,
+      [...fs.readFileSync(rtfFilePath)]
+    );
+  }
+}
+
+function ensureNotNullish<T>(value: T | null | undefined): T {
+  if (value === null || value === undefined) {
+    throw new Error("Unexpected nullish value");
+  }
+  else {
+    return value;
+  }
+}

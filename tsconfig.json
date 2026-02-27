@@ -1,14 +1,25 @@
 {
     "compilerOptions": {
-        "target": "ES5",
-        "module": "CommonJS",
+        "target": "es2020",
+        "module": "nodenext",
         "declaration": true,
         "outDir": "lib",
         "allowSyntheticDefaultImports": true,
         "esModuleInterop": true,
-        "moduleResolution": "Node",
-        "typeRoots": [
-            "node_modules/@types"
-        ]
-    }
+        "moduleResolution": "nodenext",
+        "lib": [
+            "ESNext",
+            "DOM"
+        ],
+        "types": [],
+        "verbatimModuleSyntax": true
+    },
+    "include": [
+        "src/**/*.ts"
+    ],
+    "exclude": [
+        "test",
+        "test",
+        "node_modules"
+    ]
 }

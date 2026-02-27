@@ -1,10 +1,10 @@
-import DataStreamR from "./DataStreamR";
-import { Codec } from "./utils";
+import { DataStreamReader } from "./DataStreamReader.js";
+import type { Codec } from "./utils.js";
 
 /**
  * RecurFrequency
  * 
- * @see [[MS-OXOCAL]: RecurrencePattern Structure | Microsoft Learn](https://learn.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxocal/cf7153b4-f8b5-4cb6-bf14-e78d21f94814)
+ * @see {@link https://learn.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxocal/cf7153b4-f8b5-4cb6-bf14-e78d21f94814 | [MS-OXOCAL]: RecurrencePattern Structure | Microsoft Learn}
  */
 export enum RecurFrequency {
   Daily = 0x200A,
@@ -16,7 +16,7 @@ export enum RecurFrequency {
 /**
  * PatternType
  * 
- * @see [[MS-OXOCAL]: RecurrencePattern Structure | Microsoft Learn](https://learn.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxocal/cf7153b4-f8b5-4cb6-bf14-e78d21f94814)
+ * @see {@link https://learn.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxocal/cf7153b4-f8b5-4cb6-bf14-e78d21f94814 | [MS-OXOCAL]: RecurrencePattern Structure | Microsoft Learn}
  */
 export enum PatternType {
   /**
@@ -180,7 +180,7 @@ export enum EndType {
 /**
  * PatternTypeSpecific Week
  * 
- * @see [[MS-OXOCAL]: PatternTypeSpecific Week | Microsoft Learn](https://learn.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxocal/d5ab794b-c2d8-42e4-b1f3-3913e97b0889)
+ * @see {@link https://learn.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxocal/d5ab794b-c2d8-42e4-b1f3-3913e97b0889 | [MS-OXOCAL]: PatternTypeSpecific Week | Microsoft Learn}
  */
 export interface PatternTypeWeek {
   /**
@@ -200,7 +200,7 @@ export interface PatternTypeWeek {
 /**
  * PatternTypeSpecific Month
  * 
- * @see [[MS-OXOCAL]: PatternTypeSpecific Month | Microsoft Learn](https://learn.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxocal/457a77d0-51bf-47fc-bceb-33f3f78f91b8)
+ * @see {@link https://learn.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxocal/457a77d0-51bf-47fc-bceb-33f3f78f91b8 | [MS-OXOCAL]: PatternTypeSpecific Month | Microsoft Learn}
  */
 export interface PatternTypeMonth {
   /**
@@ -212,7 +212,7 @@ export interface PatternTypeMonth {
 /**
  * PatternTypeSpecific MonthNth
  * 
- * @see [[MS-OXOCAL]: PatternTypeSpecific MonthNth | Microsoft Learn](https://learn.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxocal/6ac538f5-8ba0-4dfe-a383-09fab61136db)
+ * @see {@link https://learn.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxocal/6ac538f5-8ba0-4dfe-a383-09fab61136db | [MS-OXOCAL]: PatternTypeSpecific MonthNth | Microsoft Learn}
  */
 export interface PatternTypeMonthNth {
   /**
@@ -254,7 +254,7 @@ export interface PatternTypeMonthNth {
  * new Date(-11644473600000 + endDate * 1000 * 60);
  * ```
  * 
- * @see [[MS-OXOCAL]: RecurrencePattern Structure | Microsoft Learn](https://learn.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxocal/cf7153b4-f8b5-4cb6-bf14-e78d21f94814)
+ * @see {@link https://learn.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxocal/cf7153b4-f8b5-4cb6-bf14-e78d21f94814 | [MS-OXOCAL]: RecurrencePattern Structure | Microsoft Learn}
  */
 export interface RecurrencePattern {
   /**
@@ -448,7 +448,7 @@ export interface RecurrencePattern {
 /**
  * OverrideFlags
  * 
- * @see [[MS-OXOCAL]: ExceptionInfo Structure | Microsoft Learn](https://learn.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxocal/0980d033-3bf1-43e9-a1e6-af51c564e24a)
+ * @see {@link https://learn.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxocal/0980d033-3bf1-43e9-a1e6-af51c564e24a | [MS-OXOCAL]: ExceptionInfo Structure | Microsoft Learn}
  */
 export enum OverrideFlags {
   /**
@@ -507,8 +507,8 @@ export enum OverrideFlags {
 /**
  * ExceptionInfo and ExtendedException Structure
  * 
- * @see [[MS-OXOCAL]: ExceptionInfo Structure | Microsoft Learn](https://learn.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxocal/0980d033-3bf1-43e9-a1e6-af51c564e24a)
- * @see [[MS-OXOCAL]: ExtendedException Structure | Microsoft Learn](https://learn.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxocal/84246341-a23f-49c8-824f-1f07b9ceae37)
+ * @see {@link https://learn.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxocal/0980d033-3bf1-43e9-a1e6-af51c564e24a | [MS-OXOCAL]: ExceptionInfo Structure | Microsoft Learn}
+ * @see {@link https://learn.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxocal/84246341-a23f-49c8-824f-1f07b9ceae37 | [MS-OXOCAL]: ExtendedException Structure | Microsoft Learn}
  */
 export interface ExceptionInfo {
   /**
@@ -632,8 +632,8 @@ export interface ExceptionInfo {
 /**
  * AppointmentRecur
  * 
- * @see [[MS-OXOCAL]: PidLidAppointmentRecur Property | Microsoft Learn](https://learn.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxocal/5ee26cac-2c03-4b8d-8fc1-37c4bb5712dd)
- * @see [[MS-OXOCAL]: AppointmentRecurrencePattern Structure | Microsoft Learn](https://learn.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxocal/c8e2d103-f4e7-4de2-9cc9-0d8f8d8ef201)
+ * @see {@link https://learn.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxocal/5ee26cac-2c03-4b8d-8fc1-37c4bb5712dd | [MS-OXOCAL]: PidLidAppointmentRecur Property | Microsoft Learn}
+ * @see {@link https://learn.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxocal/c8e2d103-f4e7-4de2-9cc9-0d8f8d8ef201 | [MS-OXOCAL]: AppointmentRecurrencePattern Structure | Microsoft Learn}
  */
 export interface AppointmentRecur {
   /**
@@ -662,7 +662,7 @@ export interface AppointmentRecur {
   exceptionInfo: ExceptionInfo[];
 }
 
-function parseRecurrencePattern(ds: DataStreamR): RecurrencePattern {
+function parseRecurrencePattern(ds: DataStreamReader): RecurrencePattern {
   const ReaderVersion = ds.readUint16();
   if (ReaderVersion !== 0x3004) {
     throw new Error("ReaderVersion not supported");
@@ -745,7 +745,7 @@ function parseRecurrencePattern(ds: DataStreamR): RecurrencePattern {
 /**
  * @internal
  */
-export function parse(ds: DataStreamR, codec: Codec): AppointmentRecur {
+export function parse(ds: DataStreamReader, codec: Codec): AppointmentRecur {
   const recurrencePattern = parseRecurrencePattern(ds);
 
   const readerVersion2 = ds.readUint32();

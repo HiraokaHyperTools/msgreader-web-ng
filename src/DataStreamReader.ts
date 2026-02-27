@@ -1,4 +1,9 @@
-export default class DataStreamR {
+import { decodeAsLatin1, decodeAsUtf16le } from "./utils.js";
+
+/**
+ * @internal
+ */
+export class DataStreamReader {
   private _view: DataView;
   private _position: number;
   private _length: number;
@@ -31,13 +36,13 @@ export default class DataStreamR {
     if (decode) {
       return decode(data);
     } else {
-      return new TextDecoder("latin1").decode(data);
+      return decodeAsLatin1(data);
     }
   }
 
   public readUCS2String(count: number): string {
     const data = this.subarray(this._position, this._position += count * 2);
-    return new TextDecoder("utf-16le").decode(data);
+    return decodeAsUtf16le(data);
   }
 
   public seekCur(offset: number): void {

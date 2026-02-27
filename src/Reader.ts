@@ -1,6 +1,6 @@
-import DataStreamR from "./DataStreamR";
-import { arraysEqual } from "./utils";
-import CONST from './const'
+import { DataStreamReader } from "./DataStreamReader.js";
+import { arraysEqual } from "./utils.js";
+import CONST from './const.js';
 
 /**
  * `Object Type` in `2.6.1 Compound File Directory Entry`
@@ -118,7 +118,7 @@ export interface CFileSet {
  * Original msg file (CFBF) reader which was implemented in MsgReader.
  */
 export class Reader {
-  private ds: DataStreamR;
+  private ds: DataStreamReader;
   private bigBlockSize: number;
   private bigBlockLength: number;
   private xBlockLength: number;
@@ -134,13 +134,13 @@ export class Reader {
   private propertyData?: Property[];
   private bigBlockTable: number[];
 
-  constructor(arrayBuffer: ArrayBuffer | DataView | ArrayLike<number>) {
+  constructor(arrayBuffer: ArrayBuffer | Uint8Array | DataView) {
     if (arrayBuffer instanceof ArrayBuffer) {
-      this.ds = new DataStreamR(new Uint8Array(arrayBuffer), 0);
+      this.ds = new DataStreamReader(new Uint8Array(arrayBuffer), 0);
     } else if (arrayBuffer instanceof DataView) {
-      this.ds = new DataStreamR(new Uint8Array(arrayBuffer.buffer, arrayBuffer.byteOffset, arrayBuffer.byteLength), 0);
+      this.ds = new DataStreamReader(new Uint8Array(arrayBuffer.buffer, arrayBuffer.byteOffset, arrayBuffer.byteLength), 0);
     } else if (arrayBuffer && arrayBuffer.length !== undefined) {
-      this.ds = new DataStreamR(new Uint8Array(arrayBuffer), 0);
+      this.ds = new DataStreamReader(new Uint8Array(arrayBuffer), 0);
     } else {
       throw new Error("Unknown arrayBuffer");
     }

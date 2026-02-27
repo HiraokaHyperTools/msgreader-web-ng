@@ -1,5 +1,5 @@
-import DataStreamR from "./DataStreamR";
-import { TransitionSystemTime } from "./TZDEFINITIONParser";
+import { DataStreamReader } from "./DataStreamReader.js";
+import type { TransitionSystemTime } from "./TZDEFINITIONParser.js";
 
 /**
  * @internal
@@ -136,7 +136,7 @@ function padNumber(value: number, maxLen: number): string {
 /**
  * @internal
  */
-export function readSystemTime(ds: DataStreamR): Date | null {
+export function readSystemTime(ds: DataStreamReader): Date | null {
   // SYSTEMTIME structure (minwinbase.h)
   // https://learn.microsoft.com/en-us/windows/win32/api/minwinbase/ns-minwinbase-systemtime
 
@@ -161,7 +161,7 @@ export function readSystemTime(ds: DataStreamR): Date | null {
 /**
  * @internal
  */
-export function readTransitionSystemTime(ds: DataStreamR): TransitionSystemTime {
+export function readTransitionSystemTime(ds: DataStreamReader): TransitionSystemTime {
   // SYSTEMTIME structure (minwinbase.h)
   // https://learn.microsoft.com/en-us/windows/win32/api/minwinbase/ns-minwinbase-systemtime
 
@@ -187,7 +187,7 @@ export function readTransitionSystemTime(ds: DataStreamR): TransitionSystemTime 
 /**
  * @internal
  */
-export function bin2HexUpper(ds: DataStreamR): string {
+export function bin2HexUpper(ds: DataStreamReader): string {
   var text = "";
   while (!ds.isEof()) {
     text += toHex1(ds.readUint8());
@@ -197,4 +197,35 @@ export function bin2HexUpper(ds: DataStreamR): string {
 
 export interface Codec {
   decode?: (data: Uint8Array) => string;
+}
+
+const latin1Decoder = new TextDecoder("latin1");
+
+/**
+ * @internal
+ */
+export function decodeAsLatin1(data: Uint8Array): string {
+  return latin1Decoder.decode(data);
+}
+
+const utf16leDecoder = new TextDecoder("utf-16le");
+
+/**
+ * @internal
+ */
+export function decodeAsUtf16le(data: Uint8Array): string {
+  return utf16leDecoder.decode(data);
+}
+
+/**
+ * @internal
+ */
+export function encodeUCS2String(text: string): Uint8Array {
+  // https://stackoverflow.com/a/24386744
+  var byteArray = new Uint8Array(text.length * 2);
+  for (var i = 0; i < text.length; i++) {
+    byteArray[i * 2] = text.charCodeAt(i) & 0xff;
+    byteArray[i * 2 + 1] = (text.charCodeAt(i) >> 8) & 0xff;
+  }
+  return byteArray;
 }

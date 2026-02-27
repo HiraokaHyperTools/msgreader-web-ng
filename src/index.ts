@@ -1,5 +1,11 @@
-import MsgReader from "./MsgReader";
-
-export * from "./MsgReader";
-
-export default MsgReader;
+export { MsgReader } from "./MsgReader.js";
+export type { ParserConfig, SomeOxProps, FieldsData, SomeParsedOxProps, RawProp, AttachmentData } from "./MsgReader.js";
+export { Reader, TypeEnum } from "./Reader.js";
+export type { CFileSet, CFolder, Property } from "./Reader.js";
+export { burn } from "./Burner.js";
+export type { Entry } from "./Burner.js";
+export type { TzDefinitionRule, TzDefinition, TransitionSystemTime } from './TZDEFINITIONParser.js';
+export type { TzReg } from './TZREGParser.js';
+export { RecurFrequency, PatternType, CalendarType, EndType, OverrideFlags } from './AppointmentRecurParser.js';
+export type { PatternTypeWeek, PatternTypeMonth, PatternTypeMonthNth, RecurrencePattern, ExceptionInfo, AppointmentRecur } from './AppointmentRecurParser.js';
+export { getLcidToAnsiCodePages, getProps, getTypeNames } from './Defs.js';

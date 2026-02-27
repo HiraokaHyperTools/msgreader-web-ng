@@ -2911,7 +2911,7 @@ export function getProps(): Array<{ area: string, key: string, name: string }> {
  * - `typeNames[0x001F]` returns `"PtypString"`.
  * - `typeNames[0x0102]` returns `"PtypBinary"`.
  * 
- * @see [[MS-OXCDATA]: Property Data Types | Microsoft Docs](https://docs.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxcdata/0c77892e-288e-435a-9c49-be1c20c7afdb)
+ * @see {@link https://docs.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxcdata/0c77892e-288e-435a-9c49-be1c20c7afdb | [MS-OXCDATA]: Property Data Types | Microsoft Docs}
  */
 export function getTypeNames(): { [key: number]: string } {
     return {

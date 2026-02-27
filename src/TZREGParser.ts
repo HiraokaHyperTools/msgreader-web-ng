@@ -1,6 +1,6 @@
-import DataStreamR from "./DataStreamR";
-import { TransitionSystemTime } from "./TZDEFINITIONParser";
-import { readTransitionSystemTime } from "./utils";
+import { DataStreamReader } from "./DataStreamReader.js";
+import type { TransitionSystemTime } from "./TZDEFINITIONParser.js";
+import { readTransitionSystemTime } from "./utils.js";
 
 
 /**
@@ -58,7 +58,7 @@ export interface TzReg {
 /**
  * @internal
  */
-export function parse(ds: DataStreamR): TzReg | null {
+export function parse(ds: DataStreamReader): TzReg | null {
   // PidLidTimeZoneStruct Canonical Property
   // https://learn.microsoft.com/en-us/office/client-developer/outlook/mapi/pidlidtimezonestruct-canonical-property
 

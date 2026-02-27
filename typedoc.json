@@ -1,11 +1,6 @@
 {
   "entryPoints": [
-    "./src/Burner.ts",
-    "./src/DataStreamR.ts",
-    "./src/DataStreamW.ts",
-    "./src/MsgReader.ts",
-    "./src/Reader.ts",
-    "./src/Defs.ts"
+    "./src/index.ts",
   ],
   "out": "docs/typedoc",
   "excludePrivate": true,

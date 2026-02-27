@@ -1,5 +1,5 @@
-import DataStreamR from "./DataStreamR";
-import { readSystemTime, readTransitionSystemTime } from "./utils";
+import { DataStreamReader } from "./DataStreamReader.js";
+import { readSystemTime, readTransitionSystemTime } from "./utils.js";
 
 const TZDEFINITION_FLAG_VALID_GUID = 1;
 const TZDEFINITION_FLAG_VALID_KEYNAME = 2;
@@ -99,7 +99,7 @@ export interface TzDefinition {
 /**
  * @internal
  */
-export function parse(ds: DataStreamR): TzDefinition | null {
+export function parse(ds: DataStreamReader): TzDefinition | null {
   // About persisting TZDEFINITION to a stream to commit to a binary property
   // https://learn.microsoft.com/en-us/office/client-developer/outlook/auxiliary/about-persisting-tzdefinition-to-a-stream-to-commit-to-a-binary-property?redirectedfrom=MSDN
 

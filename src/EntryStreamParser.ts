@@ -1,4 +1,4 @@
-import DataStreamR from "./DataStreamR";
+import { DataStreamReader } from "./DataStreamReader.js";
 
 export interface Entry {
   key: number;
@@ -11,7 +11,7 @@ export interface Entry {
  * @internal
  */
 export function parse(array: Uint8Array): Entry[] {
-  const ds = new DataStreamR(array, 0);
+  const ds = new DataStreamReader(array, 0);
   const ret: Entry[] = [];
   while (!ds.isEof()) {
     const key = ds.readUint32();

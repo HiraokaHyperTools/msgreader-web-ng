@@ -16,23 +16,16 @@
  MSG Reader
  */
 
-import CONST from './const'
-import DataStreamR from './DataStreamR';
-import { CFileSet, CFolder, Reader } from './Reader';
-import { burn, Entry } from './Burner';
-import { bin2HexUpper, Codec, emptyToNull, msftUuidStringify, toHex2, toHex4 } from './utils';
-import { parse as entryStreamParser } from './EntryStreamParser';
-import { parse as parseVerbStream } from './VerbStreamParser';
-import { parse as parseTZDEFINITION, TzDefinition } from './TZDEFINITIONParser';
-import { parse as parseTZREG, TzReg } from './TZREGParser';
-import { AppointmentRecur, parse as parseAppointmentRecur } from './AppointmentRecurParser';
-
-export { TzDefinitionRule, TzDefinition, TransitionSystemTime } from './TZDEFINITIONParser';
-export { TzReg } from './TZREGParser';
-export {
-  RecurFrequency, PatternType, CalendarType, EndType, PatternTypeWeek, PatternTypeMonth,
-  PatternTypeMonthNth, RecurrencePattern, OverrideFlags, ExceptionInfo, AppointmentRecur,
-} from './AppointmentRecurParser';
+import CONST from './const.js';
+import { DataStreamReader } from './DataStreamReader.js';
+import { type CFileSet, type CFolder, Reader } from './Reader.js';
+import { burn, type Entry } from './Burner.js';
+import { bin2HexUpper, type Codec, emptyToNull, msftUuidStringify, toHex2, toHex4 } from './utils.js';
+import { parse as entryStreamParser } from './EntryStreamParser.js';
+import { parse as parseVerbStream } from './VerbStreamParser.js';
+import { parse as parseTZDEFINITION, type TzDefinition } from './TZDEFINITIONParser.js';
+import { parse as parseTZREG, type TzReg } from './TZREGParser.js';
+import { type AppointmentRecur, parse as parseAppointmentRecur } from './AppointmentRecurParser.js';
 
 // MSG Reader implementation
 
@@ -94,13 +87,13 @@ enum TypeEnum {
  * 
  * Note that please sync with: `CONST.MSG.FIELD.NAME_MAPPING`
  * 
- * @see [[MS-OXPROPS]: Exchange Server Protocols Master Property List | Microsoft Docs](https://docs.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxprops/f6ab1613-aefe-447d-a49c-18217230b148)
+ * @see {@link https://docs.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxprops/f6ab1613-aefe-447d-a49c-18217230b148 | [MS-OXPROPS]: Exchange Server Protocols Master Property List | Microsoft Docs}
  */
 export interface SomeOxProps {
   /**
    * Contains the subject of the email message.
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see https://github.com/HiraokaHyperTools/OXPROPS/blob/master/JSON/0037-PidTagSubject.md
    */
@@ -109,7 +102,7 @@ export interface SomeOxProps {
   /**
    * Contains the display name of the sending mailbox owner.
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see https://github.com/HiraokaHyperTools/OXPROPS/blob/master/JSON/0C1A-PidTagSenderName.md
    */
@@ -123,7 +116,7 @@ export interface SomeOxProps {
    * - `xmailuser@xmailserver.test` for {@link senderAddressType} = 'SMTP'
    * - `/O=EXCHANGELABS/OU=EXCHANGE ADMINISTRATIVE GROUP (xxx)/CN=RECIPIENTS/CN=xxx` for {@link senderAddressType} = 'EX'
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see https://github.com/HiraokaHyperTools/OXPROPS/blob/master/JSON/0C1F-PidTagSenderEmailAddress.md
    */
@@ -132,7 +125,7 @@ export interface SomeOxProps {
   /**
    * Contains message body text in plain text format.
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see https://github.com/HiraokaHyperTools/OXPROPS/blob/master/JSON/1000-PidTagBody.md
    */
@@ -161,7 +154,7 @@ export interface SomeOxProps {
    * 
    * ```
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see https://github.com/HiraokaHyperTools/OXPROPS/blob/master/JSON/007D-PidTagTransportMessageHeaders.md
    */
@@ -170,7 +163,7 @@ export interface SomeOxProps {
   /**
    * Contains message body text in compressed RTF format.
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see https://github.com/HiraokaHyperTools/OXPROPS/blob/master/JSON/1009-PidTagRtfCompressed.md
    */
@@ -181,7 +174,7 @@ export interface SomeOxProps {
    * 
    * e.g. `.png`
    * 
-   * Target {@link dataType} = 'attachment'.
+   * Target {@link FieldsData#dataType} = 'attachment'.
    * 
    * @see https://github.com/HiraokaHyperTools/OXPROPS/blob/master/JSON/3703-PidTagAttachExtension.md
    */
@@ -192,7 +185,7 @@ export interface SomeOxProps {
    * 
    * e.g. `green.png`
    * 
-   * Target {@link dataType} = 'attachment'.
+   * Target {@link FieldsData#dataType} = 'attachment'.
    * 
    * @see https://docs.microsoft.com/en-US/office/client-developer/outlook/mapi/pidtagattachfilename-canonical-property
    */
@@ -203,7 +196,7 @@ export interface SomeOxProps {
    * 
    * e.g. `green.png`
    * 
-   * Target {@link dataType} = 'attachment'.
+   * Target {@link FieldsData#dataType} = 'attachment'.
    * 
    * @see https://docs.microsoft.com/en-US/office/client-developer/outlook/mapi/pidtagattachlongfilename-canonical-property
    * @see https://github.com/HiraokaHyperTools/OXPROPS/blob/master/JSON/3707-PidTagAttachLongFilename.md
@@ -214,7 +207,7 @@ export interface SomeOxProps {
    * Contains a content identifier unique to the Message object that matches a
    * corresponding "cid" URI schema reference in the HTML body of the Message object.
    * 
-   * Target {@link dataType} = 'attachment'.
+   * Target {@link FieldsData#dataType} = 'attachment'.
    * 
    * @see https://github.com/HiraokaHyperTools/OXPROPS/blob/master/JSON/3712-PidTagAttachContentId.md
    */
@@ -229,7 +222,7 @@ export interface SomeOxProps {
    * - `green.png` for generic attachment.
    * - `I have attachments!` for msg attachment.
    * 
-   * Target {@link dataType} = 'recipient' and 'attachment'.
+   * Target {@link FieldsData#dataType} = 'recipient' and 'attachment'.
    * 
    * @see https://github.com/HiraokaHyperTools/OXPROPS/blob/master/JSON/3001-PidTagDisplayName.md
    */
@@ -243,7 +236,7 @@ export interface SomeOxProps {
    * - `xmailuser@xmailserver.test` for {@link addressType} = 'SMTP'
    * - `/o=ExchangeLabs/ou=Exchange Administrative Group (xxx)/cn=Recipients/cn=xxx` for {@link addressType} = 'EX'
    * 
-   * Target {@link dataType} = 'recipient'.
+   * Target {@link FieldsData#dataType} = 'recipient'.
    * 
    * @see https://github.com/HiraokaHyperTools/OXPROPS/blob/master/JSON/3003-PidTagEmailAddress.md
    */
@@ -254,7 +247,7 @@ export interface SomeOxProps {
    * 
    * e.g. `Mon, 15 Feb 2021 08:19:21 GMT`
    * 
-   * Target {@link dataType} = 'msg' and 'attachment'.
+   * Target {@link FieldsData#dataType} = 'msg' and 'attachment'.
    * 
    * @see https://github.com/HiraokaHyperTools/OXPROPS/blob/master/JSON/3007-PidTagCreationTime.md
    */
@@ -265,7 +258,7 @@ export interface SomeOxProps {
    * 
    * e.g. `Mon, 15 Feb 2021 08:19:21 GMT`
    * 
-   * Target {@link dataType} = 'msg' and 'attachment'.
+   * Target {@link FieldsData#dataType} = 'msg' and 'attachment'.
    * 
    * @see https://github.com/HiraokaHyperTools/OXPROPS/blob/master/JSON/3008-PidTagLastModificationTime.md
    */
@@ -276,7 +269,7 @@ export interface SomeOxProps {
    * 
    * e.g. `Mon, 15 Feb 2021 08:19:04 GMT`
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see https://github.com/HiraokaHyperTools/OXPROPS/blob/master/JSON/0039-PidTagClientSubmitTime.md
    */
@@ -287,7 +280,7 @@ export interface SomeOxProps {
    * 
    * e.g. `Mon, 15 Feb 2021 08:19:00 GMT`
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see https://github.com/HiraokaHyperTools/OXPROPS/blob/master/JSON/0E06-PidTagMessageDeliveryTime.md
    */
@@ -301,7 +294,7 @@ export interface SomeOxProps {
    * 
    * - `xxx@xxx.onmicrosoft.com` for {@link senderAddressType} = 'EX'
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see https://social.microsoft.com/Forums/partner/en-US/8e15ac6d-0404-41c0-9af7-26a06ca797bf/meaning-of-mapi-identifiers-0x5d0a-and-0x5d0b?forum=os_exchangeprotocols
    * @see https://github.com/HiraokaHyperTools/msgreader/issues/10
@@ -316,7 +309,7 @@ export interface SomeOxProps {
    * 
    * - `xxx@xxx.onmicrosoft.com` for {@link senderAddressType} = 'EX'
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see https://social.microsoft.com/Forums/partner/en-US/8e15ac6d-0404-41c0-9af7-26a06ca797bf/meaning-of-mapi-identifiers-0x5d0a-and-0x5d0b?forum=os_exchangeprotocols
    * @see https://github.com/HiraokaHyperTools/msgreader/issues/10
@@ -330,7 +323,7 @@ export interface SomeOxProps {
    * 
    * - `xxx@xxx.onmicrosoft.com` for {@link addressType} = 'EX'
    * 
-   * Target {@link dataType} = 'recipient'.
+   * Target {@link FieldsData#dataType} = 'recipient'.
    * 
    * @see https://github.com/HiraokaHyperTools/OXPROPS/blob/master/JSON/39FE-PidTagSmtpAddress.md
    * @see https://github.com/HiraokaHyperTools/msgreader/issues/10
@@ -348,7 +341,7 @@ export interface SomeOxProps {
    * 
    * - `UnoKenji` for {@link senderAddressType} = 'EX'
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see https://github.com/HiraokaHyperTools/OXPROPS/blob/master/JSON/3FFA-PidTagLastModifierName.md
    * @see https://github.com/HiraokaHyperTools/msgreader/issues/10
@@ -363,7 +356,7 @@ export interface SomeOxProps {
    * - `EX`
    * - `SMTP`
    * 
-   * Target {@link dataType} = 'recipient'.
+   * Target {@link FieldsData#dataType} = 'recipient'.
    * 
    * @see https://github.com/HiraokaHyperTools/OXPROPS/blob/master/JSON/3002-PidTagAddressType.md
    * @see https://github.com/HiraokaHyperTools/msgreader/issues/10
@@ -378,7 +371,7 @@ export interface SomeOxProps {
    * - `EX`
    * - `SMTP`
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see https://github.com/HiraokaHyperTools/OXPROPS/blob/master/JSON/0C1E-PidTagSenderAddressType.md
    * @see https://github.com/HiraokaHyperTools/msgreader/issues/10
@@ -388,7 +381,7 @@ export interface SomeOxProps {
   /**
    * Indicates whether an attachment is hidden from the end user.
    * 
-   * Target {@link dataType} = 'attachment'.
+   * Target {@link FieldsData#dataType} = 'attachment'.
    * 
    * @see https://docs.microsoft.com/en-us/office/client-developer/outlook/mapi/pidtagattachmenthidden-canonical-property
    * @see https://github.com/HiraokaHyperTools/OXPROPS/blob/master/JSON/7FFE-PidTagAttachmentHidden.md
@@ -403,7 +396,7 @@ export interface SomeOxProps {
    * - `Yes`
    * - `はい`
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see https://docs.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxprops/88f982ff-0146-422b-8545-0701b5e7916e
    * @see https://docs.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxomsg/eb67f145-2ceb-4427-bbc1-f67a6dcbd24b
@@ -437,7 +430,7 @@ export interface SomeOxProps {
    * 
    * e.g. `xmailuser@xmailserver.test`
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see https://docs.microsoft.com/en-us/office/client-developer/outlook/mapi/pidlidinternetaccountname-canonical-property
    * @see https://github.com/HiraokaHyperTools/OXPROPS/blob/master/JSON/00008580-PidLidInternetAccountName.md
@@ -450,7 +443,7 @@ export interface SomeOxProps {
    * e.g.
    * `no-reply@microsoft.com` for {@link senderAddressType} = 'SMTP'
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see https://docs.microsoft.com/en-us/office/client-developer/outlook/mapi/pidtagsendersmtpaddress-canonical-property
    * @see https://github.com/HiraokaHyperTools/OXPROPS/blob/master/JSON/5D01-PidTagSenderSmtpAddress.md
@@ -463,7 +456,7 @@ export interface SomeOxProps {
    * e.g.
    * `no-reply@microsoft.com` for {@link senderAddressType} = 'SMTP'
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see https://docs.microsoft.com/en-us/office/client-developer/outlook/mapi/pidtagsentrepresentingsmtpaddress-canonical-property
    * @see https://github.com/HiraokaHyperTools/OXPROPS/blob/master/JSON/5D02-PidTagSentRepresentingSmtpAddress.md
@@ -491,7 +484,7 @@ export interface SomeOxProps {
    * 
    * e.g. `Wed, 13 Oct 2021 09:30:00 GMT`
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see https://docs.microsoft.com/en-us/office/client-developer/outlook/mapi/pidlidappointmentstartwhole-canonical-property
    * @see https://github.com/HiraokaHyperTools/OXPROPS/blob/master/JSON/0000820D-PidLidAppointmentStartWhole.md
@@ -503,7 +496,7 @@ export interface SomeOxProps {
    * 
    * e.g. `Wed, 13 Oct 2021 10:00:00 GMT`
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see https://docs.microsoft.com/en-us/office/client-developer/outlook/mapi/pidlidappointmentendwhole-canonical-property
    * @see https://github.com/HiraokaHyperTools/OXPROPS/blob/master/JSON/0000820E-PidLidAppointmentEndWhole.md
@@ -516,7 +509,7 @@ export interface SomeOxProps {
    * 
    * e.g. `Wed, 13 Oct 2021 09:30:00 GMT`
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see https://docs.microsoft.com/en-us/office/client-developer/outlook/mapi/pidlidclipstart-canonical-property
    * @see https://github.com/HiraokaHyperTools/OXPROPS/blob/master/JSON/00008235-PidLidClipStart.md
@@ -528,7 +521,7 @@ export interface SomeOxProps {
    * 
    * e.g. `Wed, 13 Oct 2021 09:30:00 GMT`
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see https://docs.microsoft.com/en-us/office/client-developer/outlook/mapi/pidlidclipend-canonical-property
    * @see https://github.com/HiraokaHyperTools/OXPROPS/blob/master/JSON/00008236-PidLidClipEnd.md
@@ -538,7 +531,7 @@ export interface SomeOxProps {
   /**
    * Indicates the code page used for PR_BODY (PidTagBody) or PR_BODY_HTML (PidTagBodyHtml) properties.
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see https://docs.microsoft.com/en-us/office/client-developer/outlook/mapi/pidtaginternetcodepage-canonical-property
    * @see https://github.com/HiraokaHyperTools/OXPROPS/blob/master/JSON/3FDE-PidTagInternetCodepage.md
@@ -548,7 +541,7 @@ export interface SomeOxProps {
   /**
    * Contains the code page that is used for the message.
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see https://docs.microsoft.com/en-us/office/client-developer/outlook/mapi/pidtagmessagecodepage-canonical-property
    * @see https://github.com/HiraokaHyperTools/OXPROPS/blob/master/JSON/3FFD-PidTagMessageCodepage.md
@@ -558,7 +551,7 @@ export interface SomeOxProps {
   /**
    * Contains the Windows LCID of the end user who created this message.
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see https://docs.microsoft.com/en-us/office/client-developer/outlook/mapi/pidtagmessagelocaleid-canonical-property
    * @see https://github.com/HiraokaHyperTools/OXPROPS/blob/master/JSON/3FF1-PidTagMessageLocaleId.md
@@ -581,7 +574,7 @@ export interface SomeOxProps {
   /**
    * Contains a name for the department in which the recipient works.
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see https://docs.microsoft.com/en-us/office/client-developer/outlook/mapi/pidtagdepartmentname-canonical-property
    */
@@ -590,7 +583,7 @@ export interface SomeOxProps {
   /**
    * Contains the middle name of a contact.
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see https://docs.microsoft.com/en-us/office/client-developer/outlook/mapi/pidtagmiddlename-canonical-property
    */
@@ -599,7 +592,7 @@ export interface SomeOxProps {
   /**
    * Contains a generational abbreviation that follows the full name of the recipient.
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see https://docs.microsoft.com/en-us/office/client-developer/outlook/mapi/pidtaggeneration-canonical-property
    */
@@ -608,7 +601,7 @@ export interface SomeOxProps {
   /**
    * Contains the last or surname of the recipient.
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see https://docs.microsoft.com/en-us/office/client-developer/outlook/mapi/pidtagsurname-canonical-property
    */
@@ -617,7 +610,7 @@ export interface SomeOxProps {
   /**
    * Contains the city for the recipient's home address.
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see https://docs.microsoft.com/en-us/office/client-developer/outlook/mapi/pidtaghomeaddresscity-canonical-property
    */
@@ -626,7 +619,7 @@ export interface SomeOxProps {
   /**
    * Specifies the phonetic pronunciation of the contact's given name.
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see https://docs.microsoft.com/en-us/office/client-developer/outlook/mapi/pidlidyomifirstname-canonical-property
    */
@@ -635,7 +628,7 @@ export interface SomeOxProps {
   /**
    * Contains the recipient's company name.
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see https://docs.microsoft.com/en-us/office/client-developer/outlook/mapi/pidtagcompanyname-canonical-property
    */
@@ -651,7 +644,7 @@ export interface SomeOxProps {
   /**
    * Contains the recipient's street address.
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see https://docs.microsoft.com/en-us/office/client-developer/outlook/mapi/pidtagstreetaddress-canonical-property
    */
@@ -660,7 +653,7 @@ export interface SomeOxProps {
   /**
    * Contains the URL of the home page for the business.
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see https://docs.microsoft.com/en-us/office/client-developer/outlook/mapi/pidtagbusinesshomepage-canonical-property
    */
@@ -669,7 +662,7 @@ export interface SomeOxProps {
   /**
    * Specifies the first email address of the contact.
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see https://docs.microsoft.com/en-us/office/client-developer/outlook/mapi/pidlidemail1emailaddress-canonical-property
    */
@@ -678,7 +671,7 @@ export interface SomeOxProps {
   /**
    * Specifies the phonetic pronunciation of the contact's company name.
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see https://docs.microsoft.com/en-us/office/client-developer/outlook/mapi/pidlidyomicompanyname-canonical-property
    */
@@ -687,7 +680,7 @@ export interface SomeOxProps {
   /**
    * Contains the string value "FAX".
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * Reference: PidLidFax3AddressType PSETID_Address:000080d2
    */
@@ -696,7 +689,7 @@ export interface SomeOxProps {
   /**
    * Contains the mail user's given name.
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * Reference: PidTagGivenName propertyTag=3a06001f
    */
@@ -705,7 +698,7 @@ export interface SomeOxProps {
   /**
    * Contains the primary telephone number of the mail user's home.
    * 
-   * Target { @link dataType } = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * Reference: PidTagHomeTelephoneNumber propertyTag = 3a09001f
    */
@@ -714,7 +707,7 @@ export interface SomeOxProps {
   /**
    * Contains the mail user's postal address.
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * Reference: PidTagPostalAddress propertyTag=3a15001f
    */
@@ -723,7 +716,7 @@ export interface SomeOxProps {
   /**
    * Contains the mail user's job title.
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * Reference: PidTagTitle propertyTag=3a17001f
    */
@@ -732,7 +725,7 @@ export interface SomeOxProps {
   /**
    * Contains the mail user's cellular telephone number.
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * Reference: PidTagMobileTelephoneNumber propertyTag=3a1c001f
    */
@@ -741,7 +734,7 @@ export interface SomeOxProps {
   /**
    * Contains the name of the mail user's country/region.
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * Reference: PidTagCountry propertyTag=3a26001f
    */
@@ -750,7 +743,7 @@ export interface SomeOxProps {
   /**
    * Contains the name of the mail user's state or province.
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * Reference: PidTagStateOrProvince propertyTag=3a28001f
    */
@@ -759,7 +752,7 @@ export interface SomeOxProps {
   /**
    * Contains the postal code for the mail user's postal address.
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * Reference: PidTagPostalCode propertyTag=3a2a001f
    */
@@ -768,7 +761,7 @@ export interface SomeOxProps {
   /**
    * Contains the mail user's honorific title.
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * Reference: PidTagDisplayNamePrefix propertyTag=3a45001f
    */
@@ -777,7 +770,7 @@ export interface SomeOxProps {
   /**
    * Specifies the user-readable display name for the email address.
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * Reference: PidLidEmail1DisplayName PSETID_Address:00008080
    */
@@ -786,7 +779,7 @@ export interface SomeOxProps {
   /**
    * Specifies the SMTP email address that corresponds to the email address for the Contact object.
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * Reference: PidLidEmail1OriginalDisplayName PSETID_Address:00008084
    */
@@ -795,7 +788,7 @@ export interface SomeOxProps {
   /**
    * Specifies the name under which to file a contact when displaying a list of contacts.
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * Reference: PidLidFileUnder PSETID_Address:00008005
    */
@@ -804,7 +797,7 @@ export interface SomeOxProps {
   /**
    * Specifies the phonetic pronunciation of the surname of the contact.
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * Reference: PidLidYomiLastName PSETID_Address:0000802d
    */
@@ -813,7 +806,7 @@ export interface SomeOxProps {
   /**
    * Contains the string value "FAX".
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * Reference: PidLidFax1AddressType PSETID_Address:000080b2
    */
@@ -824,7 +817,7 @@ export interface SomeOxProps {
    * 
    * e.g. `コム ドット イグザンプル 殿@+81 06-0001-0003`
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * Reference: PidLidFax2EmailAddress PSETID_Address:000080c3
    */
@@ -835,7 +828,7 @@ export interface SomeOxProps {
    * 
    * e.g. `Osaka`
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * Reference: PidLidWorkAddressCity PSETID_Address:00008046
    */
@@ -846,7 +839,7 @@ export interface SomeOxProps {
    * 
    * e.g. `コム ドット イグザンプル 殿`
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * Reference: PidTagConversationTopic propertyTag=0070001f
    */
@@ -857,7 +850,7 @@ export interface SomeOxProps {
    * 
    * e.g. `コム ドット イグザンプル 殿`
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * Reference: PidTagNormalizedSubject propertyTag=0e1d001f
    */
@@ -868,7 +861,7 @@ export interface SomeOxProps {
    * 
    * e.g. `JP`
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * Reference: PidLidAddressCountryCode PSETID_Address:000080dd
    */
@@ -879,7 +872,7 @@ export interface SomeOxProps {
    * 
    * e.g. `FAX`
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * Reference: PidLidFax2AddressType PSETID_Address:000080c2
    */
@@ -890,7 +883,7 @@ export interface SomeOxProps {
    * 
    * e.g. `コム ドット イグザンプル 殿`
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * Reference: PidLidFax2OriginalDisplayName PSETID_Address:000080c4
    */
@@ -901,7 +894,7 @@ export interface SomeOxProps {
    * 
    * e.g. `544-0001`
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * Reference: PidLidWorkAddressPostalCode PSETID_Address:00008048
    */
@@ -912,7 +905,7 @@ export interface SomeOxProps {
    * 
    * e.g. `Somewhere`
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * Reference: PidLidWorkAddressStreet PSETID_Address:00008045
    */
@@ -923,7 +916,7 @@ export interface SomeOxProps {
    * 
    * e.g. `Osaka`
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * Reference: PidLidWorkAddressState PSETID_Address:00008047
    */
@@ -934,7 +927,7 @@ export interface SomeOxProps {
    * 
    * e.g. `JP`
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * Reference: PidLidWorkAddressCountryCode PSETID_Address:000080db
    */
@@ -945,7 +938,7 @@ export interface SomeOxProps {
    * 
    * e.g. `日本`
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * Reference: PidLidWorkAddressCountry PSETID_Address:00008049
    */
@@ -956,7 +949,7 @@ export interface SomeOxProps {
    * 
    * e.g. `https://example.com`
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * Reference: PidLidHtml PSETID_Address:0000802b
    */
@@ -966,7 +959,7 @@ export interface SomeOxProps {
    * 
    * e.g. `544-0001\nOsaka\nOsaka\nSomewhere`
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * Reference: PidLidWorkAddress PSETID_Address:0000801b
    */
@@ -977,7 +970,7 @@ export interface SomeOxProps {
    * 
    * e.g. ``
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * Reference: PidLidFax1OriginalDisplayName PSETID_Address:000080b4
    */
@@ -988,7 +981,7 @@ export interface SomeOxProps {
    * 
    * e.g. `06-0001-0002`
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * Reference: PidTagBusinessTelephoneNumber propertyTag=3a08001f
    */
@@ -999,7 +992,7 @@ export interface SomeOxProps {
    * 
    * e.g. ``
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * Reference: PidLidInstantMessagingAddress PSETID_Address:00008062
    */
@@ -1010,7 +1003,7 @@ export interface SomeOxProps {
    * 
    * e.g. ``
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * Reference: PidLidDepartment PSETID_Address:00008010
    */
@@ -1021,7 +1014,7 @@ export interface SomeOxProps {
    * 
    * e.g. ``
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * Reference: PidTagLocation propertyTag=3a0d001f
    */
@@ -1032,7 +1025,7 @@ export interface SomeOxProps {
    * 
    * e.g. ``
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * Reference: PidLidFax1EmailAddress PSETID_Address:000080b3
    */
@@ -1043,7 +1036,7 @@ export interface SomeOxProps {
    * 
    * e.g. ``
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * Reference: PidLidFax3OriginalDisplayName PSETID_Address:000080d4
    */
@@ -1054,7 +1047,7 @@ export interface SomeOxProps {
    * 
    * e.g. ``
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * Reference: PidLidFax3EmailAddress PSETID_Address:000080d3
    */
@@ -1065,7 +1058,7 @@ export interface SomeOxProps {
    * 
    * e.g. `(UTC+09:00) 大阪、札幌、東京`
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see [PidLidTimeZoneDescription Canonical Property | Microsoft Learn](https://learn.microsoft.com/en-us/office/client-developer/outlook/mapi/pidlidtimezonedescription-canonical-property)
    */
@@ -1076,7 +1069,7 @@ export interface SomeOxProps {
    * 
    * e.g. `image/png`
    * 
-   * Target {@link dataType} = 'attachment'.
+   * Target {@link FieldsData#dataType} = 'attachment'.
    * 
    * @see [PidTagAttachMimeTag Canonical Property | Microsoft Learn](https://learn.microsoft.com/en-us/office/client-developer/outlook/mapi/pidtagattachmimetag-canonical-property)
    */
@@ -1091,7 +1084,7 @@ export interface SomeOxProps {
    * - `<000001da0c5d$22ab1460$68013d20$@hmailserver.test>`
    * - `<OS3P286MB0565639EF64566509A9EE31281CC9@OS3P286MB0565.JPNP286.PROD.OUTLOOK.COM>`
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see [PidTagInternetMessageId Canonical Property | Microsoft Learn](https://learn.microsoft.com/en-us/office/client-developer/outlook/mapi/pidtaginternetmessageid-canonical-property)
    */
@@ -1105,7 +1098,7 @@ export interface SomeOxProps {
    * - ``
    * - `Awesome coffee shop`
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see [PidLidLocation Canonical Property | Microsoft Learn](https://learn.microsoft.com/en-us/office/client-developer/outlook/mapi/pidlidlocation-canonical-property)
    */
@@ -1114,7 +1107,7 @@ export interface SomeOxProps {
   /**
    * Indicates the original value of the dispidLocation (PidLidLocation) property before a meeting update.
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see [PidLidOldLocation Canonical Property | Microsoft Learn](https://learn.microsoft.com/en-us/office/client-developer/outlook/mapi/pidlidoldlocation-canonical-property)
    */
@@ -1123,7 +1116,7 @@ export interface SomeOxProps {
   /**
    * An undocumented property known as PR_PREVIEW.
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    */
   preview?: string;
 }
@@ -1132,7 +1125,7 @@ export interface SomeParsedOxProps {
   /**
    * Contains the recipient type for a message recipient.
    * 
-   * Target {@link dataType} = 'recipient'.
+   * Target {@link FieldsData#dataType} = 'recipient'.
    * 
    * @see https://docs.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxomsg/144ae256-8cf2-45a1-a297-221b44f68cfe
    * @see https://docs.microsoft.com/en-us/office/client-developer/outlook/mapi/pidtagrecipienttype-canonical-property
@@ -1148,7 +1141,7 @@ export interface SomeParsedOxProps {
    * - `Yes;No;Maybe`
    * - `はい;いいえ;たぶん`
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see https://docs.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxprops/e11cc753-cecf-4fdc-bec7-23304d12388a
    * @see https://docs.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxomsg/89a70cdb-28ca-4d63-9deb-6d8c15c2cb47
@@ -1199,7 +1192,7 @@ export interface SomeParsedOxProps {
    * 
    * e.g. `040000008200E00074C5B7101A82E00800000000A048DAF17405D9010000000000000000100000003C10A5564C9D36459E7780C78BAFCB77`
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    * 
    * @see [PidLidGlobalObjectId Canonical Property | Microsoft Learn](https://learn.microsoft.com/en-us/office/client-developer/outlook/mapi/pidlidglobalobjectid-canonical-property)
    * @see [AppointmentItem.GlobalAppointmentID property (Outlook) | Microsoft Learn](https://learn.microsoft.com/en-us/office/vba/api/outlook.appointmentitem.globalappointmentid)
@@ -1215,7 +1208,7 @@ export interface FieldsData extends SomeOxProps, SomeParsedOxProps {
   /**
    * The attachment file's contentLength.
    * 
-   * Target {@link dataType} = 'attachment'.
+   * Target {@link FieldsData#dataType} = 'attachment'.
    */
   contentLength?: number;
 
@@ -1224,7 +1217,7 @@ export interface FieldsData extends SomeOxProps, SomeParsedOxProps {
    * 
    * This is entry index to CFBF stream.
    * 
-   * Target {@link dataType} = 'attachment'.
+   * Target {@link FieldsData#dataType} = 'attachment'.
    */
   dataId?: number;
 
@@ -1233,7 +1226,7 @@ export interface FieldsData extends SomeOxProps, SomeParsedOxProps {
    * 
    * This is entry index to CFBF storage.
    * 
-   * Target {@link dataType} = 'attachment'.
+   * Target {@link FieldsData#dataType} = 'attachment'.
    */
   folderId?: number;
 
@@ -1242,14 +1235,14 @@ export interface FieldsData extends SomeOxProps, SomeParsedOxProps {
    * 
    * The embedded msg is represented as a CFBF storage (not single CFBF stream).
    * 
-   * Target {@link dataType} = 'attachment'.
+   * Target {@link FieldsData#dataType} = 'attachment'.
    */
   innerMsgContent?: true;
 
   /**
    * The properties defined in embedded msg.
    * 
-   * Target {@link dataType} = 'attachment'.
+   * Target {@link FieldsData#dataType} = 'attachment'.
    */
   innerMsgContentFields?: FieldsData;
 
@@ -1270,7 +1263,7 @@ export interface FieldsData extends SomeOxProps, SomeParsedOxProps {
    * 
    * Use with {@link MsgReader.getAttachment}.
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    */
   attachments?: FieldsData[];
 
@@ -1286,14 +1279,14 @@ export interface FieldsData extends SomeOxProps, SomeParsedOxProps {
    * },
    * ```
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    */
   recipients?: FieldsData[];
 
   /**
    * error is set on parse error.
    * 
-   * Target {@link dataType} = 'msg'.
+   * Target {@link FieldsData#dataType} = 'msg'.
    */
   error?: string;
 
@@ -1328,8 +1321,8 @@ export interface RawProp {
    * - `3001001f` is set for PidTagDisplayName.
    * - `80000000` ~ `ffffffff` are private tags. Need to inspect: {@link propertySet} and {@link propertyLid}
    * 
-   * @see [[MS-OXPROPS]: Property ID Ranges | Microsoft Docs](https://docs.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxprops/ed38d6e3-2871-4cb5-ab3e-0aebe9d02c21)
-   * @see [[MS-OXCDATA]: Property Data Types | Microsoft Docs](https://docs.microsoft.com/en-us/openspecs/exchange_server_protocols/MS-OXCDATA/0c77892e-288e-435a-9c49-be1c20c7afdb)
+   * @see {@link https://docs.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxprops/ed38d6e3-2871-4cb5-ab3e-0aebe9d02c21 | [MS-OXPROPS]: Property ID Ranges | Microsoft Docs}
+   * @see {@link https://docs.microsoft.com/en-us/openspecs/exchange_server_protocols/MS-OXCDATA/0c77892e-288e-435a-9c49-be1c20c7afdb | [MS-OXCDATA]: Property Data Types | Microsoft Docs}
    */
   propertyTag: string | undefined;
 
@@ -1340,7 +1333,7 @@ export interface RawProp {
    * 
    * e.g. `00062008-0000-0000-c000-000000000046` is set for PSETID_Common.
    * 
-   * @see [[MS-OXPROPS]: Commonly Used Property Sets | Microsoft Docs](https://docs.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxprops/cc9d955b-1492-47de-9dce-5bdea80a3323)
+   * @see {@link https://docs.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxprops/cc9d955b-1492-47de-9dce-5bdea80a3323 | [MS-OXPROPS]: Commonly Used Property Sets | Microsoft Docs}
    */
   propertySet: string | undefined;
 
@@ -1351,7 +1344,7 @@ export interface RawProp {
    * 
    * e.g. `00008580` is set for PidLidInternetAccountName.
    * 
-   * @see [[MS-OXPROPS]: Structures | Microsoft Docs](https://docs.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxprops/37dd7329-97a4-42ff-974d-d805ac4d7211)
+   * @see {@link https://docs.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxprops/37dd7329-97a4-42ff-974d-d805ac4d7211 | [MS-OXPROPS]: Structures | Microsoft Docs}
    */
   propertyLid: string | undefined;
 
@@ -1380,7 +1373,7 @@ export interface RawProp {
    * - `IsPartiallyIndexed`
    * - `LastIndexingAttemptTime`
    * 
-   * @see [[MS-OXMSG]: String Named Property | Microsoft Docs](https://docs.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxmsg/9e984a31-e32d-4e8f-bb92-93bd2df6cd12)
+   * @see {@link https://docs.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxmsg/9e984a31-e32d-4e8f-bb92-93bd2df6cd12 | [MS-OXMSG]: String Named Property | Microsoft Docs}
    */
   propertyName: string | undefined;
 
@@ -1474,7 +1467,7 @@ export interface AttachmentData {
 /**
  * The core implementation of MsgReader
  */
-export default class MsgReader {
+export class MsgReader {
   private reader: Reader;
   private fieldsData: FieldsData;
   parserConfig?: ParserConfig;
@@ -1485,13 +1478,13 @@ export default class MsgReader {
    */
   private privatePidToKeyed: { [key: number]: KeyedEntry };
 
-  constructor(arrayBuffer: ArrayBuffer | DataView) {
+  constructor(arrayBuffer: ArrayBuffer | Uint8Array | DataView) {
     this.reader = new Reader(arrayBuffer);
   }
 
   private decodeField(fieldClass: string, fieldType: string, provider: () => Uint8Array, codec: Codec, insideProps: boolean): FieldValuePair {
     const array = provider();
-    const ds = new DataStreamR(array);
+    const ds = new DataStreamReader(array);
 
     let key = CONST.MSG.FIELD.FULL_NAME_MAPPING[`${fieldClass}${fieldType}`]
       || CONST.MSG.FIELD.NAME_MAPPING[fieldClass];
@@ -1778,12 +1771,12 @@ export default class MsgReader {
 
   private fieldsRecipAndAttachmentProperties(parserConfig: ParsingConfig, documentProperty: CFileSet, fields: FieldsData): void {
     const propertiesBinary: Uint8Array = documentProperty.provider();
-    const propertiesDs = new DataStreamR(propertiesBinary, 8);
+    const propertiesDs = new DataStreamReader(propertiesBinary, 8);
 
     this.importPropertiesFromFile(parserConfig, propertiesDs, fields);
   }
 
-  private importPropertiesFromFile(parserConfig: ParsingConfig, propertiesDs: DataStreamR, fields: FieldsData) {
+  private importPropertiesFromFile(parserConfig: ParsingConfig, propertiesDs: DataStreamReader, fields: FieldsData) {
     // See: [MS-OXMSG]: Outlook Item (.msg) File Format, 2.4 Property Stream
     // https://docs.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxmsg/20c1125f-043d-42d9-b1dc-cb9b7e5198ef
 
@@ -1818,7 +1811,7 @@ export default class MsgReader {
 
   private fieldsRootProperties(parserConfig: ParsingConfig, documentProperty: CFileSet, fields: FieldsData): void {
     const propertiesBinary: Uint8Array = documentProperty.provider();
-    const propertiesDs = new DataStreamR(propertiesBinary, 32);
+    const propertiesDs = new DataStreamReader(propertiesBinary, 32);
 
     this.importPropertiesFromFile(parserConfig, propertiesDs, fields);
   }
@@ -1870,7 +1863,7 @@ export default class MsgReader {
     //console.log("%", guidTable, stringTable, entryTable);
     if (guidTable !== undefined && stringTable !== undefined && entryTable !== undefined) {
       const entries = entryStreamParser(entryTable);
-      const stringReader = new DataStreamR(stringTable, 0);
+      const stringReader = new DataStreamReader(stringTable, 0);
       for (let entry of entries) {
         if (entry.isStringProperty) {
           stringReader.seekBegin(entry.key);

@@ -1,22 +1,21 @@
-import DataStreamR from "./DataStreamR";
-import DataStreamW from "./DataStreamW";
-import { TypeEnum } from "./Reader";
-import CONST from "./const";
+import { TypeEnum } from "./Reader.js";
+import CONST from "./const.js";
+import { encodeUCS2String } from "./utils.js";
 
 /**
  * CFBF entry for CFBF burner.
  * 
  * These entries are stored in same order in CFBF.
  * 
- * The first entry must be {@link ROOT}.
+ * The first entry must be {@link TypeEnum#ROOT}.
  * 
- * This {@link ROOT} stream represents:
+ * This {@link TypeEnum#ROOT} stream represents:
  * 
  * - The root folder as same as you see in real file system.
  *   Including direct children files/folder.
  * - The body of minifat.
  * 
- * The secondary entries are collection of items having type either {@link DIRECTORY} or {@link DOCUMENT}.
+ * The secondary entries are collection of items having type either {@link TypeEnum#DIRECTORY} or {@link TypeEnum#DOCUMENT}.
  * 
  */
 export interface Entry {
@@ -28,16 +27,16 @@ export interface Entry {
     /**
      * Entry type:
      * 
-     * - {@link DIRECTORY}
-     * - {@link DOCUMENT}
-     * - {@link ROOT}
+     * - {@link TypeEnum#DIRECTORY}
+     * - {@link TypeEnum#DOCUMENT}
+     * - {@link TypeEnum#ROOT}
      */
     type: TypeEnum;
 
     /**
      * Callback to supply binary data.
      *
-     * This is valid only for {@link DOCUMENT} entry type.
+     * This is valid only for {@link TypeEnum#DOCUMENT} entry type.
     */
     binaryProvider?: () => ArrayLike<number>;
 
@@ -46,14 +45,14 @@ export interface Entry {
      * 
      * Has to match with {@link binaryProvider}'s length.
      * 
-     * This is valid only for {@link DOCUMENT} entry type. Otherwise set zero.
+     * This is valid only for {@link TypeEnum#DOCUMENT} entry type. Otherwise set zero.
      */
     length: number;
 
     /**
-     * The indices to sub entries including {@link DOCUMENT} and {@link DIRECTORY}.
+     * The indices to sub entries including {@link TypeEnum#DOCUMENT} and {@link TypeEnum#DIRECTORY}.
      * 
-     * This is valid only for {@link DIRECTORY} entry type.
+     * This is valid only for {@link TypeEnum#DIRECTORY} entry type.
      */
     children?: number[];
 }
@@ -208,8 +207,9 @@ class LiteBurner {
             ? this.fat.allocateAs(numDifatSectors, -4)
             : -2;
 
-        const array = new ArrayBuffer(512 * (1 + this.fat.count()));
-        const ds = new DataStreamW(array);
+        const ab = new ArrayBuffer(512 * (1 + this.fat.count()));
+        const array = new Uint8Array(ab);
+        const view = new DataView(ab);
 
         this.miniFat.finalize(512 / 4, -1);
 
@@ -244,32 +244,28 @@ class LiteBurner {
         // header
 
         {
-            ds.seekBegin(0);
-            ds.writeUint8Array(CONST.FILE_HEADER);
-            ds.seekBegin(0x18);
-            ds.writeUint16(0x3E); //ushort MinorVersion
-            ds.writeUint16(0x03); //ushort MajorVersion
-            ds.writeUint16(0xFFFE); //ushort ByteOrder
-            ds.writeUint16(9); //ushort SectorShift
-            ds.writeUint16(6); //ushort MiniSectorShift
+            writeUint8Array(view, 0, CONST.FILE_HEADER);
+            view.setUint16(0x18, 0x3E, true); //ushort MinorVersion
+            view.setUint16(0x1A, 0x03, true); //ushort MajorVersion
+            view.setUint16(0x1C, 0xFFFE, true); //ushort ByteOrder
+            view.setUint16(0x1E, 9, true); //ushort SectorShift
+            view.setUint16(0x20, 6, true); //ushort MiniSectorShift
 
-            ds.seekBegin(0x2C);
-            ds.writeInt32(numFatSectors); //int32 NumberOfFATSectors
-            ds.writeInt32(entriesFirstSector); //int32 FirstDirectorySectorLocation
+            view.setInt32(0x2C, numFatSectors, true); //int32 NumberOfFATSectors
+            view.setInt32(0x30, entriesFirstSector, true); //int32 FirstDirectorySectorLocation
 
-            ds.seekBegin(0x38);
-            ds.writeInt32(4096); //int32 MiniStreamCutoffSize
-            ds.writeInt32(firstMiniFatSector); //int32 FirstMiniFATSectorLocation
-            ds.writeInt32(numMiniFatSectors); //int32 NumberOfMiniFATSectors
-            ds.writeInt32(firstDifatSector); //int32 FirstDIFATSectorLocation
-            ds.writeInt32(numDifatSectors); //int32 NumberOfDIFATSectors
+            view.setInt32(0x38, 4096, true); //int32 MiniStreamCutoffSize
+            view.setInt32(0x3C, firstMiniFatSector, true); //int32 FirstMiniFATSectorLocation
+            view.setInt32(0x40, numMiniFatSectors, true); //int32 NumberOfMiniFATSectors
+            view.setInt32(0x44, firstDifatSector, true); //int32 FirstDIFATSectorLocation
+            view.setInt32(0x48, numDifatSectors, true); //int32 NumberOfDIFATSectors
 
             let x = 0;
             for (; x < difat1.length; x++) {
-                ds.writeInt32(difat1[x]); //int32 DIFAT[x]
+                view.setInt32(0x4C + 4 * x, difat1[x], true); //int32 DIFAT[x]
             }
             for (; x < 109; x++) {
-                ds.writeInt32(-1); //int32 DIFAT[x]
+                view.setInt32(0x4C + 4 * x, -1, true); //int32 DIFAT[x]
             }
         }
 
@@ -279,21 +275,19 @@ class LiteBurner {
             const liteEnt = this.liteEnts[x];
             const pos = 512 * (1 + entriesFirstSector) + 128 * x;
 
-            ds.seekBegin(pos);
-            ds.writeUCS2String(liteEnt.entry.name);
-            const numBytesName = ds.getPosition() - pos;
+            const entryName = encodeUCS2String(liteEnt.entry.name);
+            writeUint8Array(view, pos, entryName);
+            const numBytesName = entryName.length;
 
-            ds.seekBegin(pos + 0x40);
-            ds.writeUint16(Math.min(64, numBytesName + 2));
-            ds.writeUint8(liteEnt.entry.type);
-            ds.writeUint8(liteEnt.isRed ? 0 : 1);
-            ds.writeInt32(liteEnt.left);
-            ds.writeInt32(liteEnt.right);
-            ds.writeInt32(liteEnt.child);
+            view.setUint16(pos + 0x40, Math.min(64, numBytesName + 2), true);
+            view.setUint8(pos + 0x42, liteEnt.entry.type);
+            view.setUint8(pos + 0x43, liteEnt.isRed ? 0 : 1);
+            view.setInt32(pos + 0x44, liteEnt.left, true);
+            view.setInt32(pos + 0x48, liteEnt.right, true);
+            view.setInt32(pos + 0x4C, liteEnt.child, true);
 
             if (x === 0) {
-                ds.seekBegin(pos + 0x50);
-                ds.writeUint8Array([0x0B, 0x0D, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0xC0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46]);
+                writeUint8Array(view, pos + 0x50, [0x0B, 0x0D, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0xC0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46]);
             }
 
             const length = (x === 0)
@@ -303,9 +297,8 @@ class LiteBurner {
                 ? liteEnt.firstSector
                 : (liteEnt.entry.type === TypeEnum.DIRECTORY ? 0 : -2);
 
-            ds.seekBegin(pos + 0x74);
-            ds.writeInt32(firstSector);
-            ds.writeInt32(length);
+            view.setInt32(pos + 0x74, firstSector, true);
+            view.setInt32(pos + 0x78, length, true);
         }
 
         for (let liteEnt of this.liteEnts
@@ -315,8 +308,7 @@ class LiteBurner {
             )
         ) {
             const bytes = liteEnt.entry.binaryProvider();
-            ds.seekBegin(512 * (1 + liteEnt.firstSector));
-            ds.writeUint8Array(bytes);
+            array.set(bytes, 512 * (1 + liteEnt.firstSector));
         }
 
         for (let liteEnt of this.liteEnts
@@ -326,30 +318,26 @@ class LiteBurner {
             )
         ) {
             const bytes = liteEnt.entry.binaryProvider();
-            ds.seekBegin(512 * (1 + firstMiniDataSector) + 64 * liteEnt.firstSector);
-            ds.writeUint8Array(bytes);
+            array.set(bytes, 512 * (1 + firstMiniDataSector) + 64 * liteEnt.firstSector);
         }
 
         // minifat
 
-        ds.seekBegin(512 * (1 + firstMiniFatSector));
-        ds.writeInt32Array(this.miniFat.sectors);
+        writeInt32Array(view, 512 * (1 + firstMiniFatSector), this.miniFat.sectors);
 
         // fat
 
         this.fat.finalize(512 / 4, -1);
 
-        ds.seekBegin(512 * (1 + firstFatSector));
-        ds.writeInt32Array(this.fat.sectors);
+        writeInt32Array(view, 512 * (1 + firstFatSector), this.fat.sectors);
 
         // difat
 
         if (numDifatSectors >= 1) {
-            ds.seekBegin(512 * (1 + firstDifatSector));
-            ds.writeInt32Array(difat2);
+            writeInt32Array(view, 512 * (1 + firstDifatSector), difat2);
         }
 
-        this.array = array;
+        this.array = ab;
     }
 
     /**
@@ -442,6 +430,18 @@ class LiteBurner {
                 this.buildTree(subIndex);
             }
         }
+    }
+}
+
+function writeInt32Array(dataView: DataView, offset: number, array: ArrayLike<number>) {
+    for (let x = 0; x < array.length; x++) {
+        dataView.setInt32(offset + x * 4, array[x], true);
+    }
+}
+
+function writeUint8Array(dataView: DataView, offset: number, array: ArrayLike<number>) {
+    for (let x = 0; x < array.length; x++) {
+        dataView.setUint8(offset + x, array[x]);
     }
 }
 
