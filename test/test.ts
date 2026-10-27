@@ -498,6 +498,9 @@ describe('MsgReader', function () {
     function run(callback: (arg: { testMsgInfo: FieldsData }) => void) {
       const msgFileBuffer = fs.readFileSync('test/contactAnsi.msg');
       const testMsg = new MsgReader(msgFileBuffer);
+      testMsg.parserConfig = {
+        ansiEncoding: '932',
+      };
       const testMsgInfo = ensureNotNullish(testMsg.getFileData());
       callback({ testMsgInfo });
     }
