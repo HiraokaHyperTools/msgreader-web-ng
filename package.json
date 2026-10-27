@@ -1,7 +1,7 @@
 {
   "name": "@kenjiuno/msgreader-web-ng",
   "description": "Outlook Item File (.msg) reader in JavaScript Npm Module",
-  "version": "0.2.0-alpha1",
+  "version": "0.3.0-alpha1",
   "type": "module",
   "exports": {
     ".": {
@@ -21,7 +21,10 @@
     "dr": "npm publish --dry-run"
   },
   "author": "kenjiuno",
-  "repository": "github:HiraokaHyperTools/msgreader-web-ng",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/HiraokaHyperTools/msgreader-web-ng.git"
+  },
   "license": "Apache-2.0",
   "devDependencies": {
     "@kenjiuno/decompressrtf": "^0.1.3",
