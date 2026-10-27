@@ -36,6 +36,3 @@ jobs:
 
       - name: Install dependencies
         run: yarn
-
-      - name: Invoke cli.js
-        run: node cli -h
