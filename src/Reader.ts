@@ -1,5 +1,5 @@
 import { DataStreamReader } from "./DataStreamReader.js";
-import { arraysEqual } from "./utils.js";
+import { arraysEqual, createVisitTester } from "./utils.js";
 import CONST from './const.js';
 
 /**
@@ -230,6 +230,7 @@ export class Reader {
     }
     nodeProperty.children = [];
 
+    const visit = createVisitTester(new Error("Cyclic property hierarchy detected"));
     const children = [{ currentMode: "walk", currentIndex: nodeProperty.childProperty }];
     while (children.length != 0) {
       const { currentMode, currentIndex } = children.pop();
@@ -247,6 +248,7 @@ export class Reader {
           children.push({ currentMode: "walk", currentIndex: current.nextProperty, });
         }
 
+        visit(currentIndex);
         children.push({ currentMode: "push", currentIndex: currentIndex, });
 
         if (current.previousProperty != CONST.MSG.PROP.NO_INDEX) {
@@ -260,9 +262,12 @@ export class Reader {
   private propertyDataReader(propertyStart: number): Property[] {
     const props: Property[] = [];
 
+    const visit = createVisitTester(new Error("Cyclic property chain detected"));
+
     let currentOffset = propertyStart;
 
     while (currentOffset != CONST.MSG.END_OF_CHAIN) {
+      visit(currentOffset);
       this.convertBlockToProperties(currentOffset, props);
       currentOffset = this.getNextBlock(currentOffset);
     }
@@ -333,8 +338,10 @@ export class Reader {
   private sbatDataReader(): number[] {
     const result = [];
     let startIndex = this.sbatStart;
+    const visit = createVisitTester(new Error("Cyclic small block chain detected"));
 
     for (let i = 0; i < this.sbatCount && startIndex && startIndex != CONST.MSG.END_OF_CHAIN; i++) {
+      visit(startIndex);
       result.push(startIndex);
       startIndex = this.getNextBlock(startIndex);
     }
@@ -373,8 +380,10 @@ export class Reader {
 
   private getChainByBlockSmall(fieldProperty: Property): number[] {
     const blockChain = [];
+    const visit = createVisitTester(new Error("Cyclic small block chain detected"));
     let nextBlockSmall = fieldProperty.startBlock;
     while (nextBlockSmall != CONST.MSG.END_OF_CHAIN) {
+      visit(nextBlockSmall);
       blockChain.push(nextBlockSmall);
       nextBlockSmall = this.getNextBlockSmall(nextBlockSmall);
     }
@@ -384,8 +393,10 @@ export class Reader {
   private readBigBlockTable(): number[] {
     const rootProp = this.propertyData[0];
     const table: number[] = [];
+    const visit = createVisitTester(new Error("Cyclic big block chain detected"));
     let nextBlock = rootProp.startBlock;
     for (let i = 0; nextBlock != CONST.MSG.END_OF_CHAIN; i++) {
+      visit(nextBlock);
       table.push(nextBlock);
       nextBlock = this.getNextBlock(nextBlock);
     }
@@ -439,6 +450,7 @@ export class Reader {
       let nextBlock = fieldProperty.startBlock;
       let remaining = fieldProperty.sizeBlock;
       let position = 0;
+      const visit = createVisitTester(new Error("Cyclic big block chain detected"));
       const resultData = new Uint8Array(fieldProperty.sizeBlock);
       while (1 <= remaining) {
         const blockStartOffset = this.getBlockOffsetAt(nextBlock);
@@ -448,6 +460,7 @@ export class Reader {
         resultData.set(part, position);
         position += partSize;
         remaining -= partSize;
+        visit(nextBlock);
         nextBlock = this.getNextBlock(nextBlock);
       }
       return resultData;

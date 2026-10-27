@@ -229,3 +229,18 @@ export function encodeUCS2String(text: string): Uint8Array {
   }
   return byteArray;
 }
+
+/**
+ * @internal
+ */
+export function createVisitTester(throwErrorOnDuplicate: Error): (value: number) => void {
+  const set = new Set<number>();
+  return (value: number) => {
+    if (set.has(value)) {
+      throw throwErrorOnDuplicate;
+    }
+    else {
+      set.add(value);
+    }
+  };
+}
